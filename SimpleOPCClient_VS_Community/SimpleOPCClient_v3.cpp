@@ -1,3 +1,23 @@
+/* ======================================================================================================================== */
+/*  CABECALHO*/
+/*
+	UNIVERSIDADE FEDERAL DE MINAS GERAIS
+
+	Trabalho pratico
+	Sistemas distribuidos para automacao
+
+	Professor:
+	Luiz Themystokliz S. Mendes
+
+	Alunos:
+	Estevao Coelho Kiel de Oliveira     - 2016119416
+	Lucas								- 
+
+	Data: Agosto de 2021
+
+	Explicacao do programa aqui
+*/
+
 // Simple OPC Client
 //
 // This is a modified version of the "Simple OPC Client" originally
@@ -22,6 +42,9 @@
 // luizt at cpdee.ufmg.br
 //
 
+/* ======================================================================================================================== */
+/*  INCLUDE AREA*/
+
 #include <atlbase.h>    // required for using the "_T" macro
 #include <iostream>
 #include <ObjIdl.h>
@@ -35,19 +58,31 @@
 
 using namespace std;
 
+/* ======================================================================================================================== */
+/*  DEFINE AREA*/
+
 #define OPC_SERVER_NAME L"Matrikon.OPC.Simulation.1"
 #define VT VT_R4
 
 
 //#define REMOTE_SERVER_NAME L"your_path"
 
-// Global variables
+/* ======================================================================================================================== */
+/*  DECLARACAO DO PROTOTIPO DE FUNCAO DAS THREADS SECUNDARIAS*/
+
+void* ServidorSockets(void* arg);
+
+/* ======================================================================================================================== */
+/*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
 
 // The OPC DA Spec requires that some constants be registered in order to use
 // them. The one below refers to the OPC DA 1.0 IDataObject interface.
 UINT OPC_DATA_TIME = RegisterClipboardFormat (_T("OPCSTMFORMATDATATIME"));
 
 wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
+
+/* ======================================================================================================================== */
+/*  THREAD PRIMARIA*/
 
 //////////////////////////////////////////////////////////////////////
 // Read the value of an item on an OPC server. 
@@ -394,4 +429,9 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 		else printf ("Failed to remove OPC group. Error code = %x\n", hr);
 		exit(0);
 	}
+}
+
+
+void* ServidorSockets(void* arg) {
+
 }
