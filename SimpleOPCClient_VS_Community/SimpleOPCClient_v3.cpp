@@ -52,6 +52,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <conio.h>		//	_getch()
+#include <winsock2.h>
 
 #include "opcda.h"
 #include "opcerror.h"
@@ -454,11 +455,45 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 
 
 DWORD WINAPI ServidorSockets(LPVOID index) {
+	/*------------------------------------------------------------------------------*/
+	/*Declarando variaveis*/
+	WSADATA			wsaData;
+	SOCKET			ListeningSocket, NewConnection;
+	SOCKADDR_IN		ServerAddr;
+	int				Port = 5447;
 
+	/*------------------------------------------------------------------------------*/
+	/*Configuracoes do servidor*/
+
+	/*Carrega a biblioteca winsock versao 2.2*/
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+	/*Cria um novo socket para aguardar conexoes de clientes*/
+	ListeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	/*Preenche a estrutura SOCKADDR_IN definindo o protocolo IPV4 e porta 5447 para aguardar conexoes*/
+	/*Observe as conversoes de byte order para network order*/
+	ServerAddr.sin_family			= AF_INET;
+	ServerAddr.sin_port				= htons(Port);
+	ServerAddr.sin_addr.s_addr		= htonl(INADDR_ANY);
+
+	/*Vincula o socket a porta 5447*/
+	bind(ListeningSocket, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr));
+
+	/*Aguarda por conexao de clientes - Backlog de 5 e o valor tipico*/
+	listen(ListeningSocket, 5);
+
+	/*Aceita uma conexao quando esta chegar*/
+	NewConnection = accept(ListeningSocket, (SOCKADDR*)&ClientAddr, &ClientAddrLen);
+
+	/*------------------------------------------------------------------------------*/
+	/*PARA TESTES*/
+	/*
 	while (true) {
 		printf("%d\n", index);
 		Sleep(1000);
 	}
+	*/
 
 	/*------------------------------------------------------------------------------*/
 	/*Finalizando a thread servidor de sockets*/
