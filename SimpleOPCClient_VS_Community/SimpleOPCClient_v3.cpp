@@ -453,7 +453,6 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 	}
 }
 
-
 DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
 	/*Declarando variaveis*/
@@ -466,25 +465,25 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*Configuracoes do servidor*/
 
 	/*Carrega a biblioteca winsock versao 2.2*/
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	//WSAStartup(MAKEWORD(2, 2), &wsaData);
 
 	/*Cria um novo socket para aguardar conexoes de clientes*/
-	ListeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	//ListeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
 	/*Preenche a estrutura SOCKADDR_IN definindo o protocolo IPV4 e porta 5447 para aguardar conexoes*/
 	/*Observe as conversoes de byte order para network order*/
-	ServerAddr.sin_family			= AF_INET;
-	ServerAddr.sin_port				= htons(Port);
-	ServerAddr.sin_addr.s_addr		= htonl(INADDR_ANY);
+	//ServerAddr.sin_family = AF_INET;
+	//ServerAddr.sin_port = htons(Port);
+	//ServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	/*Vincula o socket a porta 5447*/
-	bind(ListeningSocket, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr));
+	//bind(ListeningSocket, (SOCKADDR*)&ServerAddr, sizeof(ServerAddr));
 
 	/*Aguarda por conexao de clientes - Backlog de 5 e o valor tipico*/
-	listen(ListeningSocket, 5);
+	//listen(ListeningSocket, 5);
 
 	/*Aceita uma conexao quando esta chegar*/
-	NewConnection = accept(ListeningSocket, (SOCKADDR*)&ClientAddr, &ClientAddrLen);
+	//NewConnection = accept(ListeningSocket, (SOCKADDR*)&ClientAddr, &ClientAddrLen);
 
 	/*------------------------------------------------------------------------------*/
 	/*PARA TESTES*/
