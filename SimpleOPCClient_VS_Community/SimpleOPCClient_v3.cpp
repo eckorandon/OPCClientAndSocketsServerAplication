@@ -48,6 +48,10 @@
 #include <atlbase.h>    // required for using the "_T" macro
 #include <iostream>
 #include <ObjIdl.h>
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <conio.h>		//	_getch()
 
 #include "opcda.h"
 #include "opcerror.h"
@@ -64,13 +68,12 @@ using namespace std;
 #define OPC_SERVER_NAME L"Matrikon.OPC.Simulation.1"
 #define VT VT_R4
 
-
 //#define REMOTE_SERVER_NAME L"your_path"
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DO PROTOTIPO DE FUNCAO DAS THREADS SECUNDARIAS*/
 
-void* ServidorSockets(void* arg);
+unsigned _stdcall ServidorSockets(void*);
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -89,13 +92,29 @@ wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
 //
 void main(void)
 {
+	/*------------------------------------------------------------------------------*/
+	/*Nomeando terminal*/
+	SetConsoleTitle("TERMINAL PRINCIPAL");
+
+	/*------------------------------------------------------------------------------*/
+	/*Thread secundaria*/
+	HANDLE hServidorSockets;
+
+	unsigned dwServidorSocketsId;
+
+	int i = 1;
+
+	hServidorSockets = (HANDLE) _beginthreadex(NULL, 0, ServidorSockets, &i, 0, &dwServidorSocketsId);
+	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
+
+	/*------------------------------------------------------------------------------*/
 	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
 	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
 
 	OPCHANDLE hServerGroup; // server handle to the group
 	OPCHANDLE hServerItem;  // server handle to the item
 
-	int i;
+	
 	char buf[100];
 
 	// Have to be done before using microsoft COM library:
@@ -432,6 +451,22 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 }
 
 
-void* ServidorSockets(void* arg) {
+unsigned _stdcall ServidorSockets(void* arg) {
 
-}
+	int index = (int)arg;
+
+	while (true)
+	{
+		printf("1\n");
+		Sleep(1000);
+	}
+
+	/*------------------------------------------------------------------------------*/
+	/*Finalizando a thread servidor de sockets*/
+	printf("Finalizando thread servidor de sockets\n");
+	_endthreadex((void*)index);
+	GetLastError();
+
+	/*Comando nao utilizado, esta aqui apenas para compatibilidade com o Visual Studio da Microsoft*/
+	return (void*)index;
+}	/*Fim ServidorSockets*/
