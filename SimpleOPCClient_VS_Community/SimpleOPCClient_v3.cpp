@@ -22,9 +22,6 @@
 // luizt at cpdee.ufmg.br
 //
 
-/* ======================================================================================================================== */
-/*  INCLUDE AREA*/
-
 #include <atlbase.h>    // required for using the "_T" macro
 #include <iostream>
 #include <ObjIdl.h>
@@ -44,22 +41,13 @@ using namespace std;
 
 //#define REMOTE_SERVER_NAME L"your_path"
 
-/* ======================================================================================================================== */
-/*  DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
-
-void* ServidorSockets(void* arg);
-
-/* ======================================================================================================================== */
-/*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
+// Global variables
 
 // The OPC DA Spec requires that some constants be registered in order to use
 // them. The one below refers to the OPC DA 1.0 IDataObject interface.
 UINT OPC_DATA_TIME = RegisterClipboardFormat (_T("OPCSTMFORMATDATATIME"));
 
 wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
-
-/* ======================================================================================================================== */
-/*  THREAD PRIMARIA*/
 
 //////////////////////////////////////////////////////////////////////
 // Read the value of an item on an OPC server. 
@@ -75,19 +63,6 @@ void main(void)
 	int i;
 	char buf[100];
 
-	/*------------------------------------------------------------------------------*/
-	/*Threads*/
-
-	/*Handles threads*/
-	pthread_t hServidorSockets;
-
-	/*Criando threads secundarias*/
-	i = 1;
-	status = pthread_create(&hLeituraSDCD, NULL, LeituraSDCD, (void*)i);
-	if (!status) printf("Thread %d criada com Id= %0x \n", i, (int)&hLeituraSDCD);
-	else printf("Erro na criacao da thread %d! Codigo = %d\n", i, GetLastError());
-
-	/*------------------------------------------------------------------------------*/
 	// Have to be done before using microsoft COM library:
 	printf("Initializing the COM environment...\n");
 	CoInitialize(NULL);
@@ -419,20 +394,4 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 		else printf ("Failed to remove OPC group. Error code = %x\n", hr);
 		exit(0);
 	}
-}
-
-/* ======================================================================================================================== */
-/*  THREAD SECUNDARIA*/
-
-void* ServidorSockets(void* arg) {
-
-
-
-	/*------------------------------------------------------------------------------*/
-	/*Finalizando a thread leitura do SDCD*/
-	printf("Finalizando thread de servidor sockets\n");
-	pthread_exit((void*)index);
-
-	/*Comando nao utilizado, esta aqui apenas para compatibilidade com o Visual Studio da Microsoft*/
-	return (void*)index;
 }
