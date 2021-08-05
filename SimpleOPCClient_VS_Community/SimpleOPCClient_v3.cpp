@@ -81,9 +81,14 @@ DWORD WINAPI ServidorSockets(LPVOID);
 
 // The OPC DA Spec requires that some constants be registered in order to use
 // them. The one below refers to the OPC DA 1.0 IDataObject interface.
-UINT OPC_DATA_TIME = RegisterClipboardFormat (_T("OPCSTMFORMATDATATIME"));
+UINT OPC_DATA_TIME = RegisterClipboardFormat(_T("OPCSTMFORMATDATATIME"));
 
-wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
+wchar_t ITEM_ID1[] = L"Random.Int1";
+wchar_t ITEM_ID2[] = L"Random.Int2";
+wchar_t ITEM_ID3[] = L"Random.Int4";
+wchar_t ITEM_ID4[] = L"Random.Real4";
+wchar_t ITEM_ID5[] = L"Saw-toothed Waves.Int2";
+wchar_t ITEM_ID6[]= L"Saw-toothed Waves.Real4";
 
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
@@ -114,7 +119,12 @@ void main(void)
 	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
 
 	OPCHANDLE hServerGroup; // server handle to the group
-	OPCHANDLE hServerItem;  // server handle to the item
+	OPCHANDLE hServerItem1;  // server handle to the item
+	OPCHANDLE hServerItem2;  // server handle to the item
+	OPCHANDLE hServerItem3;  // server handle to the item
+	OPCHANDLE hServerItem4;  // server handle to the item
+	OPCHANDLE hServerItem5;  // server handle to the item
+	OPCHANDLE hServerItem6;  // server handle to the item
 
 	
 	char buf[100];
@@ -134,83 +144,27 @@ void main(void)
 
 	// Add the OPC item. First we have to convert from wchar_t* to char*
 	// in order to print the item name in the console.
-    size_t m;
-	wcstombs_s(&m, buf, 100, ITEM_ID, _TRUNCATE);
+
+	size_t m;
+	wcstombs_s(&m, buf, 100, ITEM_ID1, _TRUNCATE);
 	printf("Adding the item %s to the group...\n", buf);
-    AddTheItem(pIOPCItemMgt, hServerItem);
+	wcstombs_s(&m, buf, 100, ITEM_ID2, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID3, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID4, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID5, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID6, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	AddTheItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6);
 
-	//Synchronous read of the device´s item value.
-	VARIANT varValue; //to store the read value
-	VariantInit(&varValue);
-	printf ("Reading synchronously during 10 seconds...\n");
-	for (i=0; i<10; i++) {
-	  ReadItem(pIOPCItemMgt, hServerItem, varValue);
-	  // print the read value:
-	  printf("Read value: %6.2f\n", varValue.fltVal);
-	  // wait 1 second
-	  Sleep(1000);
-	}
-	
-	// Establish a callback asynchronous read by means of the old IAdviseSink()
-	// (OPC DA 1.0) method. We first instantiate a new SOCAdviseSink object and
-	// adjusts its reference count, and then call a wrapper function to
-	// setup the callback.
-	IDataObject* pIDataObject = NULL; //pointer to IDataObject interface
-	DWORD tkAsyncConnection = 0;
-	SOCAdviseSink* pSOCAdviseSink = new SOCAdviseSink ();
-	pSOCAdviseSink->AddRef();
-    printf("Setting up the IAdviseSink callback connection...\n");
-    SetAdviseSink(pIOPCItemMgt, pSOCAdviseSink, pIDataObject, &tkAsyncConnection);
-
-	// Change the group to the ACTIVE state so that we can receive the
-	// server´s callback notification
-	printf("Changing the group state to ACTIVE...\n");
-    SetGroupActive(pIOPCItemMgt); 
-
-	// Enters a message pump in order to process the server´s callback
-	// notifications. This is needed because the CoInitialize() function
-	// forces the COM threading model to STA (Single Threaded Apartment),
-	// in which, according to the MSDN, "all method calls to a COM object
-	// (...) are synchronized with the windows message queue for the
-	// single-threaded apartment's thread." So, even being a console
-	// application, the OPC client must process messages (which in this case
-	// are only useless WM_USER [0x0400] messages) in order to process
-	// incoming callbacks from a OPC server.
-	//
-	// A better alternative could be to use the CoInitializeEx() function,
-	// which allows one to  specifiy the desired COM threading model;
-	// in particular, calling
-	//        CoInitializeEx(NULL, COINIT_MULTITHREADED)
-	// sets the model to MTA (MultiThreaded Apartments) in which a message
-	// loop is __not required__ since objects in this model are able to
-	// receive method calls from other threads at any time. However, in the
-	// MTA model the user is required to handle any aspects regarding
-	// concurrency, since asynchronous, multiple calls to the object methods
-	// can occur.
-	//
 	int bRet;
 	MSG msg;
 	DWORD ticks1, ticks2;
-	ticks1 = GetTickCount();
-	printf("Waiting for IAdviseSink callback notifications during 10 seconds...\n");
-	do {
-		bRet = GetMessage( &msg, NULL, 0, 0 );
-		if (!bRet){
-			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
-			exit(0);
-		}
-		TranslateMessage(&msg); // This call is not really needed ...
-		DispatchMessage(&msg);  // ... but this one is!
-        ticks2 = GetTickCount();
-	}
-	while ((ticks2 - ticks1) < 10000);
-
-	// Cancel the callback and release its reference
-	printf("Cancelling the IAdviseSink callback...\n");
-    CancelAdviseSink(pIDataObject, tkAsyncConnection);
-	pSOCAdviseSink->Release();
     
-	// Establish a callback asynchronous read by means of the IOPCDaraCallback
+	// Establish a callback asynchronous read by means of the IOPCDataCallback
 	// (OPC DA 2.0) method. We first instantiate a new SOCDataCallback object and
 	// adjusts its reference count, and then call a wrapper function to
 	// setup the callback.
@@ -234,12 +188,14 @@ void main(void)
 	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
 	do {
 		bRet = GetMessage( &msg, NULL, 0, 0 );
+
 		if (!bRet){
 			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
+		printf("\n\n");
         ticks2 = GetTickCount();
 	}
 	while ((ticks2 - ticks1) < 10000);
@@ -252,7 +208,12 @@ void main(void)
 
 	// Remove the OPC item:
 	printf("Removing the OPC item...\n");
-	RemoveItem(pIOPCItemMgt, hServerItem);
+	RemoveItem(pIOPCItemMgt, hServerItem1);
+	RemoveItem(pIOPCItemMgt, hServerItem2);
+	RemoveItem(pIOPCItemMgt, hServerItem3);
+	RemoveItem(pIOPCItemMgt, hServerItem4);
+	RemoveItem(pIOPCItemMgt, hServerItem5);
+	RemoveItem(pIOPCItemMgt, hServerItem6);
 
 	// Remove the OPC group:
 	printf("Removing the OPC group object...\n");
@@ -343,36 +304,91 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 // is pointed by pIOPCItemMgt pointer. Return a server opc handle
 // to the item.
  
-void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem)
+void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6)
 {
 	HRESULT hr;
 
 	// Array of items to add:
-	OPCITEMDEF ItemArray[1] =
+	OPCITEMDEF ItemArray[6] =
 	{{
 	/*szAccessPath*/ L"",
-	/*szItemID*/ ITEM_ID,
+	/*szItemID*/ ITEM_ID1,
 	/*bActive*/ TRUE,
 	/*hClient*/ 1,
 	/*dwBlobSize*/ 0,
 	/*pBlob*/ NULL,
 	/*vtRequestedDataType*/ VT,
 	/*wReserved*/0
-	}};
+	},
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID2,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		},
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID3,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		} ,
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID4,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		} ,
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID5,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		} ,
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID6,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		} };
 
 	//Add Result:
 	OPCITEMRESULT* pAddResult=NULL;
 	HRESULT* pErrors = NULL;
 
 	// Add an Item to the previous Group:
-	hr = pIOPCItemMgt->AddItems(1, ItemArray, &pAddResult, &pErrors);
+	hr = pIOPCItemMgt->AddItems(6, ItemArray, &pAddResult, &pErrors);
 	if (hr != S_OK){
 		printf("Failed call to AddItems function. Error code = %x\n", hr);
 		exit(0);
 	}
 
 	// Server handle for the added item:
-	hServerItem = pAddResult[0].hServer;
+	hServerItem1 = pAddResult[0].hServer;
+	hServerItem2 = pAddResult[1].hServer;
+	hServerItem3 = pAddResult[2].hServer;
+	hServerItem4 = pAddResult[3].hServer;
+	hServerItem5 = pAddResult[4].hServer;
+	hServerItem6 = pAddResult[5].hServer;
 
 	// release memory allocated by the server:
 	CoTaskMemFree(pAddResult->pBlob);
