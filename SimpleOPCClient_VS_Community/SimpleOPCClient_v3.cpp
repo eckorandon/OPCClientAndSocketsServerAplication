@@ -73,7 +73,7 @@ using namespace std;
 /* ======================================================================================================================== */
 /*  DECLARACAO DO PROTOTIPO DE FUNCAO DAS THREADS SECUNDARIAS*/
 
-unsigned _stdcall ServidorSockets(void*);
+DWORD WINAPI ServidorSockets(LPVOID);
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -100,11 +100,12 @@ void main(void)
 	/*Thread secundaria*/
 	HANDLE hServidorSockets;
 
-	unsigned dwServidorSocketsId;
+	DWORD dwServidorSocketsId;
+	DWORD dwExitCode = 0;
 
 	int i = 1;
 
-	hServidorSockets = (HANDLE) _beginthreadex(NULL, 0, ServidorSockets, &i, 0, &dwServidorSocketsId);
+	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
 
 	/*------------------------------------------------------------------------------*/
@@ -264,6 +265,9 @@ void main(void)
 	//close the COM library:
 	printf ("Releasing the COM environment...\n");
 	CoUninitialize();
+
+	//close handles
+	CloseHandle(hServidorSockets);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -332,8 +336,6 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 		/*ppUnk*/ (IUnknown**) &pIOPCItemMgt);
 	_ASSERT(!FAILED(hr));
 }
-
-
 
 //////////////////////////////////////////////////////////////////
 // Add the Item ITEM_ID to the group whose IOPCItemMgt interface
@@ -451,22 +453,15 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 }
 
 
-unsigned _stdcall ServidorSockets(void* arg) {
+DWORD WINAPI ServidorSockets(LPVOID index) {
 
-	int index = (int)arg;
-
-	while (true)
-	{
-		printf("1\n");
+	while (true) {
+		printf("%d\n", index);
 		Sleep(1000);
 	}
 
 	/*------------------------------------------------------------------------------*/
 	/*Finalizando a thread servidor de sockets*/
 	printf("Finalizando thread servidor de sockets\n");
-	_endthreadex((void*)index);
-	GetLastError();
-
-	/*Comando nao utilizado, esta aqui apenas para compatibilidade com o Visual Studio da Microsoft*/
-	return (void*)index;
+	ExitThread((DWORD)index);
 }	/*Fim ServidorSockets*/
