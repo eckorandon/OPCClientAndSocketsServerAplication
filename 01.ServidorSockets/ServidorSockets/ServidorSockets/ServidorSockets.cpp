@@ -1,24 +1,24 @@
 #undef UNICODE
 
 /* ======================================================================================================================== */
-/*  DEFINE AREA*/
+/* DEFINE AREA*/
 
 #define WIN32_LEAN_AND_MEAN
-#define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "5447"
+#define DEFAULT_BUFLEN          128
+#define DEFAULT_PORT            "5447"
 
-#define TAMMSGSTATUS 42
-#define TAMMSGACK 10
+#define TAMMSGSTATUS            42
+#define TAMMSGACK               10
 
 /* ======================================================================================================================== */
-/*  INCLUDE AREA*/
+/* INCLUDE AREA*/
 
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
+#include <math.h>                                               /*pow()*/
 
 /* ======================================================================================================================== */
 /* XXXX*/
@@ -28,15 +28,14 @@
 //#pragma comment (lib, "Mswsock.lib")
 
 /* ======================================================================================================================== */
-/* DECLARACAO DO PROTOTIPO DE FUNCAO DAS THREADS SECUNDARIAS*/
+/* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
 
 /* ======================================================================================================================== */
 /* DECLARACAO DAS VARIAVEIS GLOBAIS*/
 
-int nseq = 0;
-
+int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
@@ -47,7 +46,7 @@ int main() {
     SetConsoleTitle("TERMINAL PRINCIPAL");
 
     /*------------------------------------------------------------------------------*/
-    /*Thread secundaria*/
+    /*Criando thread secundaria*/
     HANDLE hServidorSockets;
 
     DWORD dwServidorSocketsId;
@@ -62,7 +61,6 @@ int main() {
     /*Teste*/
 
     while (true) {
-        printf("1\n");
         Sleep(10000);
     }
 
@@ -76,29 +74,34 @@ int main() {
 /* THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index) {
-    WSADATA wsaData;
-    int iResult;
+    /*------------------------------------------------------------------------------*/
+    /*Declarando variaveis locais*/
+    WSADATA             wsaData;
 
-    SOCKET ListenSocket = INVALID_SOCKET;
-    SOCKET ClientSocket = INVALID_SOCKET;
+    SOCKET              ListenSocket    = INVALID_SOCKET;
+    SOCKET              ClientSocket    = INVALID_SOCKET;
 
-    struct addrinfo* result = NULL;
-    struct addrinfo hints;
+    struct addrinfo*    result          = NULL;
+    struct addrinfo     hints;
 
-    int iSendResult;
-    char recvbuf[DEFAULT_BUFLEN];
-    char msgstatus[TAMMSGSTATUS + 1] = "99/0000000/00/0000.0/0000.0/00000";
-    char msgack[TAMMSGACK + 1] = "22/0000000";
+    int                 iResult, 
+                        iSendResult,
+                        k               = 0,
+                        recvbuflen      = DEFAULT_BUFLEN;
+    
+    char                recvbuf     [DEFAULT_BUFLEN],
+                        msgstatus   [TAMMSGSTATUS + 1]  = "99/#######/##/####.#/####.#/#####",
+                        msgack      [TAMMSGACK + 1]     = "22/#######";
 
-    int recvbuflen = DEFAULT_BUFLEN;
+    /*------------------------------------------------------------------------------*/
+    /*Configuracoes do servidor*/
 
-    int k = 0;
-
-    // Initialize Winsock
+    /*Carrega a biblioteca winsock versao 2.2*/
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (iResult != 0) {
-        printf("WSAStartup failed with error: %d\n", iResult);
-        return 1;
+        printf("Falha na inicializacao do Winsock 2! Erro = %d\n", WSAGetLastError());
+        WSACleanup();
+        exit(0);
     }
 
     ZeroMemory(&hints, sizeof(hints));
@@ -107,63 +110,63 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
     hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = AI_PASSIVE;
 
-    // Resolve the server address and port
+    /*Definindo o endereco do servidor e porta para conexao*/
     iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &result);
     if (iResult != 0) {
-        printf("getaddrinfo failed with error: %d\n", iResult);
+        printf("Falha em getaddrinfo()! Erro = %d\n", WSAGetLastError());
         WSACleanup();
-        return 1;
+        exit(0);
     }
 
-    // Create a SOCKET for connecting to server
+    /*Criacao do socket para conexao com o servidor*/
     ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if (ListenSocket == INVALID_SOCKET) {
-        printf("socket failed with error: %ld\n", WSAGetLastError());
+        printf("Falha na inicializacao do socket! Erro = %d\n", WSAGetLastError());
         freeaddrinfo(result);
         WSACleanup();
-        return 1;
+        exit(0);
     }
 
-    // Setup the TCP listening socket
+    /*Vincula o socket a porta definida*/
     iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
-        printf("bind failed with error: %d\n", WSAGetLastError());
+        printf("Falha na vinculacao do socket a porta TCP! Erro = %d\n", WSAGetLastError());
         freeaddrinfo(result);
         closesocket(ListenSocket);
         WSACleanup();
-        return 1;
+        exit(0);
     }
 
     freeaddrinfo(result);
 
-    iResult = listen(ListenSocket, SOMAXCONN);
+    /*Colocando a porta TCP em modo de escuta - Backlog de 5 eh o valor tipico*/
+    iResult = listen(ListenSocket, 5);
     if (iResult == SOCKET_ERROR) {
-        printf("listen failed with error: %d\n", WSAGetLastError());
+        printf("Falha ao colocar a porta TCP no modo de escuta! Erro = %d\n", WSAGetLastError());
         closesocket(ListenSocket);
         WSACleanup();
-        return 1;
+        exit(0);
     }
 
     while (true) {
-        // Accept a client socket
+        /*Aguarda a conexao de um cliente de sockets entao aceita*/
         ClientSocket = accept(ListenSocket, NULL, NULL);
         if (ClientSocket == INVALID_SOCKET) {
-            printf("accept failed with error: %d\n", WSAGetLastError());
+            printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
             closesocket(ListenSocket);
             WSACleanup();
-            return 1;
+            exit(0);
         }
 
-        // Receive until the peer shuts down the connection
+        /*Recebe e envia mensagens ate que a conexao seja encerrada*/
         do {
-
             iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
             if (iResult > 0) {
-                printf("Bytes received: %d\n", iResult);
-
                 /*Caso tenha solicitado status da planta*/
                 if (iResult == 10) {
                     
+                    //Imprimir mensagem recebida
+
                     nseq = (nseq + 2) % 9999999;
                     
                     for (int j = 3; j < 10; j++) {
@@ -172,15 +175,16 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
                         msgstatus[j] = k + '0';
                     }
                     
-                    // Echo the buffer back to the sender
+                    /*Envia mensagem com dados do status da planta*/
                     iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
                     if (iSendResult == SOCKET_ERROR) {
-                        printf("send failed with error: %d\n", WSAGetLastError());
+                        printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
                         closesocket(ClientSocket);
                         WSACleanup();
-                        return 1;
+                        exit(0);
                     }
-                    printf("Bytes sent: %d\n", iSendResult);
+                    
+                    //Imprimir mensagem enviada 
                 }
 
                 /*Caso tenha solicitado confirmcao*/
