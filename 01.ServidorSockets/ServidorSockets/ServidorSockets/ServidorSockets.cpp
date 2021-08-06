@@ -6,7 +6,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "5447"
+
 #define TAMMSGSTATUS 42
+#define TAMMSGACK 10
 
 /* ======================================================================================================================== */
 /*  INCLUDE AREA*/
@@ -16,6 +18,7 @@
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 /* ======================================================================================================================== */
 /* XXXX*/
@@ -31,6 +34,9 @@ DWORD WINAPI ServidorSockets(LPVOID index);
 
 /* ======================================================================================================================== */
 /* DECLARACAO DAS VARIAVEIS GLOBAIS*/
+
+int nseq = 0;
+
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
@@ -81,8 +87,12 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
     int iSendResult;
     char recvbuf[DEFAULT_BUFLEN];
-    char msgsetup[TAMMSGSTATUS + 1] = "99/0000002/02/0050.0/0040.0/00050";
+    char msgstatus[TAMMSGSTATUS + 1] = "99/0000000/00/0000.0/0000.0/00000";
+    char msgack[TAMMSGACK + 1] = "22/0000000";
+
     int recvbuflen = DEFAULT_BUFLEN;
+
+    int k = 0;
 
     // Initialize Winsock
     iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -151,15 +161,49 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
             if (iResult > 0) {
                 printf("Bytes received: %d\n", iResult);
 
-                // Echo the buffer back to the sender
-                iSendResult = send(ClientSocket, msgsetup, TAMMSGSTATUS, 0);
-                if (iSendResult == SOCKET_ERROR) {
-                    printf("send failed with error: %d\n", WSAGetLastError());
-                    closesocket(ClientSocket);
-                    WSACleanup();
-                    return 1;
+                /*Caso tenha solicitado status da planta*/
+                if (iResult == 10) {
+                    
+                    nseq = (nseq + 2) % 9999999;
+                    
+                    for (int j = 3; j < 10; j++) {
+                        k = nseq / pow(10, (9 - j));
+                        k = k % 10;
+                        msgstatus[j] = k + '0';
+                    }
+                    
+                    // Echo the buffer back to the sender
+                    iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
+                    if (iSendResult == SOCKET_ERROR) {
+                        printf("send failed with error: %d\n", WSAGetLastError());
+                        closesocket(ClientSocket);
+                        WSACleanup();
+                        return 1;
+                    }
+                    printf("Bytes sent: %d\n", iSendResult);
                 }
-                printf("Bytes sent: %d\n", iSendResult);
+
+                /*Caso tenha solicitado confirmcao*/
+                if (iResult == 33) {
+
+                    nseq = (nseq + 2) % 9999999;
+
+                    for (int j = 3; j < 10; j++) {
+                        k = nseq / pow(10, (9 - j));
+                        k = k % 10;
+                        msgack[j] = k + '0';
+                    }
+
+                    // Echo the buffer back to the sender
+                    iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
+                    if (iSendResult == SOCKET_ERROR) {
+                        printf("send failed with error: %d\n", WSAGetLastError());
+                        closesocket(ClientSocket);
+                        WSACleanup();
+                        return 1;
+                    }
+                    printf("Bytes sent: %d\n", iSendResult);
+                }
             }
             else if (iResult == 0)
                 printf("Connection closing...\n");
