@@ -475,8 +475,6 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 
 DWORD WINAPI ServidorSockets(LPVOID index) {
 
-	printf("Hello\n");
-
 	WSADATA wsaData;
 	int iResult;
 
@@ -542,19 +540,21 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
 	// Accept a client socket
 	ClientSocket = accept(ListenSocket, NULL, NULL);
+	printf("1\n");
 	if (ClientSocket == INVALID_SOCKET) {
 		printf("accept failed with error: %d\n", WSAGetLastError());
 		closesocket(ListenSocket);
 		WSACleanup();
 		return 1;
 	}
+	printf("2\n");
 
 	// No longer need server socket
 	closesocket(ListenSocket);
 
 	// Receive until the peer shuts down the connection
 	do {
-
+		printf("3\n");
 		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
 		if (iResult > 0) {
 			printf("Bytes received: %d\n", iResult);
