@@ -4,7 +4,7 @@
 /* DEFINE AREA*/
 
 #define WIN32_LEAN_AND_MEAN
-#define DEFAULT_BUFLEN          128
+#define DEFAULT_BUFLEN          64
 #define DEFAULT_PORT            "5447"
 
 #define TAMMSGSTATUS            42
@@ -84,6 +84,8 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
     struct addrinfo*    result          = NULL;
     struct addrinfo     hints;
 
+    SYSTEMTIME          SystemTime;
+
     int                 iResult, 
                         iSendResult,
                         k               = 0,
@@ -148,93 +150,115 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
         exit(0);
     }
 
-    while (true) {
-        /*Aguarda a conexao de um cliente de sockets entao aceita*/
-        ClientSocket = accept(ListenSocket, NULL, NULL);
-        if (ClientSocket == INVALID_SOCKET) {
-            printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
-            closesocket(ListenSocket);
+    /*Aguarda a conexao de um cliente de sockets entao aceita*/
+    ClientSocket = accept(ListenSocket, NULL, NULL);
+    if (ClientSocket == INVALID_SOCKET) {
+        printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
+        closesocket(ListenSocket);
+        WSACleanup();
+        exit(0);
+    }
+
+    /*Recebe e envia mensagens ate que a conexao seja encerrada*/
+    do {
+        iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+        if (iResult > 0) {
+
+            /*Exibe a hora corrente*/
+            GetSystemTime(&SystemTime);
+            printf("SISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\n",
+                    SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+                    SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+            /*Caso tenha solicitado status da planta*/
+            if (iResult == 10) {
+                    
+                /*Imprime mensagem recebida em verde*/
+                printf("\x1b[32m");
+                printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
+                printf("\x1b[0m");
+
+                nseq = (nseq + 2) % 9999999;
+                    
+                for (int j = 3; j < 10; j++) {
+                    k = nseq / pow(10, (9 - j));
+                    k = k % 10;
+                    msgstatus[j] = k + '0';
+                }
+                    
+                /*Envia mensagem com dados do status da planta*/
+                iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
+                if (iSendResult == SOCKET_ERROR) {
+                    printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
+                    closesocket(ClientSocket);
+                    WSACleanup();
+                    exit(0);
+                }
+                    
+                /*Imprime mensagem enviada em amarelo*/
+                printf("\x1b[33m");
+                printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
+                printf("\x1b[0m");
+            }
+
+            /*Caso tenha solicitado confirmcao*/ 
+            if (iResult == 33) {
+
+                /*Imprime mensagem recebida em cyan*/
+                printf("\x1b[36m");
+                printf("Mensagem de setup de quipamentos recebida do MES\n%.33s\n\n", recvbuf);
+                printf("\x1b[0m");
+
+                nseq = (nseq + 2) % 9999999;
+
+                for (int j = 3; j < 10; j++) {
+                    k = nseq / pow(10, (9 - j));
+                    k = k % 10;
+                    msgack[j] = k + '0';
+                }
+
+                /*Envia mensagem de confirmacao (ACK)*/
+                iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
+                if (iSendResult == SOCKET_ERROR) {
+                    printf("Falha ao enviar a mensagem de confirmacao (ACK)! Erro = %d\n", WSAGetLastError());
+                    closesocket(ClientSocket);
+                    WSACleanup();
+                    exit(0);
+                }
+                    
+                /*Imprime mensagem enviada em magenta*/
+                printf("\x1b[35m");
+                printf("Mensagem de ACK enviada ao MES\n%s\n\n", msgack);
+                printf("\x1b[0m");
+            }
+        }
+        else if (iResult == 0) {
+            printf("Nenhum dado recebi, encerrando servidor de sockets!");
+        }
+        else if (iResult == SOCKET_ERROR){
+            printf("Falha ao receber dados do cliente sockets - recv()! Erro = %d\n", WSAGetLastError());
+            closesocket(ClientSocket);
             WSACleanup();
             exit(0);
         }
+    } while (iResult > 0);
 
-        /*Recebe e envia mensagens ate que a conexao seja encerrada*/
-        do {
-            iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-            if (iResult > 0) {
-                /*Caso tenha solicitado status da planta*/
-                if (iResult == 10) {
-                    
-                    //Imprimir mensagem recebida
-
-                    nseq = (nseq + 2) % 9999999;
-                    
-                    for (int j = 3; j < 10; j++) {
-                        k = nseq / pow(10, (9 - j));
-                        k = k % 10;
-                        msgstatus[j] = k + '0';
-                    }
-                    
-                    /*Envia mensagem com dados do status da planta*/
-                    iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
-                    if (iSendResult == SOCKET_ERROR) {
-                        printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
-                        closesocket(ClientSocket);
-                        WSACleanup();
-                        exit(0);
-                    }
-                    
-                    //Imprimir mensagem enviada 
-                }
-
-                /*Caso tenha solicitado confirmcao*/
-                if (iResult == 33) {
-
-                    nseq = (nseq + 2) % 9999999;
-
-                    for (int j = 3; j < 10; j++) {
-                        k = nseq / pow(10, (9 - j));
-                        k = k % 10;
-                        msgack[j] = k + '0';
-                    }
-
-                    // Echo the buffer back to the sender
-                    iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
-                    if (iSendResult == SOCKET_ERROR) {
-                        printf("send failed with error: %d\n", WSAGetLastError());
-                        closesocket(ClientSocket);
-                        WSACleanup();
-                        return 1;
-                    }
-                    printf("Bytes sent: %d\n", iSendResult);
-                }
-            }
-            else if (iResult == 0)
-                printf("Connection closing...\n");
-            else {
-                printf("recv failed with error: %d\n", WSAGetLastError());
-                closesocket(ClientSocket);
-                WSACleanup();
-                return 1;
-            }
-
-        } while (iResult > 0);
-    }
-
-    // No longer need server socket
+    /*Fechando o socket*/
     closesocket(ListenSocket);
 
-    // shutdown the connection since we're done
+    /*Desligando a conexao*/
     iResult = shutdown(ClientSocket, SD_SEND);
     if (iResult == SOCKET_ERROR) {
-        printf("shutdown failed with error: %d\n", WSAGetLastError());
+        printf("Falha ao desligar a conexao! Erro = %d\n", WSAGetLastError());
         closesocket(ClientSocket);
         WSACleanup();
-        return 1;
+        exit(0);
     }
 
-    // cleanup
+    /*Fechando o socket*/
     closesocket(ClientSocket);
+
+    /*Cleanup*/
     WSACleanup();
 
     /*------------------------------------------------------------------------------*/
