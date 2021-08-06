@@ -30,7 +30,7 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 				 OPCHANDLE& hServerGroup);
 void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6);
 void ReadItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue);
-void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem);
+void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6);
 void RemoveGroup(IOPCServer* pIOPCServer, OPCHANDLE hServerGroup);
 
 #endif // SIMPLE_OPC_CLIENT_H not defined

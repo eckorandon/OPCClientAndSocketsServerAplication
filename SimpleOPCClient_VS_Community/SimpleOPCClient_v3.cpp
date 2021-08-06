@@ -234,12 +234,7 @@ void main(void) {
 
 	// Remove the OPC item:
 	printf("Removing the OPC item...\n");
-	RemoveItem(pIOPCItemMgt, hServerItem1);
-	RemoveItem(pIOPCItemMgt, hServerItem2);
-	RemoveItem(pIOPCItemMgt, hServerItem3);
-	RemoveItem(pIOPCItemMgt, hServerItem4);
-	RemoveItem(pIOPCItemMgt, hServerItem5);
-	RemoveItem(pIOPCItemMgt, hServerItem6);
+	RemoveItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6);
 
 	// Remove the OPC group:
 	printf("Removing the OPC group object...\n");
@@ -340,14 +335,14 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 	// Array of items to add:
 	OPCITEMDEF ItemArray[6] =
 	{{
-	/*szAccessPath*/ L"",
-	/*szItemID*/ ITEM_ID1,
-	/*bActive*/ TRUE,
-	/*hClient*/ 1,
-	/*dwBlobSize*/ 0,
-	/*pBlob*/ NULL,
-	/*vtRequestedDataType*/ VT,
-	/*wReserved*/0
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID1,
+		/*bActive*/ TRUE,
+		/*hClient*/ 0,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
 	},
 	{
 		/*szAccessPath*/ L"",
@@ -363,7 +358,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID3,
 		/*bActive*/ TRUE,
-		/*hClient*/ 1,
+		/*hClient*/ 2,
 		/*dwBlobSize*/ 0,
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
@@ -373,7 +368,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID4,
 		/*bActive*/ TRUE,
-		/*hClient*/ 1,
+		/*hClient*/ 3,
 		/*dwBlobSize*/ 0,
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
@@ -383,7 +378,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID5,
 		/*bActive*/ TRUE,
-		/*hClient*/ 1,
+		/*hClient*/ 4,
 		/*dwBlobSize*/ 0,
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
@@ -393,7 +388,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID6,
 		/*bActive*/ TRUE,
-		/*hClient*/ 1,
+		/*hClient*/ 5,
 		/*dwBlobSize*/ 0,
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
@@ -468,15 +463,20 @@ void ReadItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue
 // Remove the item whose server handle is hServerItem from the group
 // whose IOPCItemMgt interface is pointed by pIOPCItemMgt
 //
-void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem)
+void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6)
 {
 	// server handle of items to remove:
-	OPCHANDLE hServerArray[1];
+	OPCHANDLE hServerArray[6];
 	hServerArray[0] = hServerItem;
+	hServerArray[1] = hServerItem2;
+	hServerArray[2] = hServerItem3;
+	hServerArray[3] = hServerItem4;
+	hServerArray[4] = hServerItem5;
+	hServerArray[5] = hServerItem6;
 	
 	//Remove the item:
 	HRESULT* pErrors; // to store error code(s)
-	HRESULT hr = pIOPCItemMgt->RemoveItems(1, hServerArray, &pErrors);
+	HRESULT hr = pIOPCItemMgt->RemoveItems(6, hServerArray, &pErrors);
 	_ASSERT(!hr);
 
 	//release memory allocated by the server:

@@ -123,6 +123,7 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	// Loop over items:
 	for (DWORD dwItem = 0; dwItem < dwCount; dwItem++)
 	{
+		printf("Advised Client OPCHANDLE: %2d\n", phClientItems[dwItem]);
 		// Print the item value, quality and time stamp. In this example, only
 		// a few OPC data types are supported.
 		status = VarToStr(pvValues[dwItem], buffer);
