@@ -1,6 +1,15 @@
 #undef UNICODE
 
+/* ======================================================================================================================== */
+/*  DEFINE AREA*/
+
 #define WIN32_LEAN_AND_MEAN
+#define DEFAULT_BUFLEN 512
+#define DEFAULT_PORT "5447"
+#define TAMMSGSTATUS 42
+
+/* ======================================================================================================================== */
+/*  INCLUDE AREA*/
 
 #include <windows.h>
 #include <winsock2.h>
@@ -8,15 +17,59 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/* ======================================================================================================================== */
+/* XXXX*/
+
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
-// #pragma comment (lib, "Mswsock.lib")
+//#pragma comment (lib, "Mswsock.lib")
 
-#define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "5447"
+/* ======================================================================================================================== */
+/* DECLARACAO DO PROTOTIPO DE FUNCAO DAS THREADS SECUNDARIAS*/
 
-int __cdecl main(void)
-{
+DWORD WINAPI ServidorSockets(LPVOID index);
+
+/* ======================================================================================================================== */
+/* DECLARACAO DAS VARIAVEIS GLOBAIS*/
+
+/* ======================================================================================================================== */
+/* THREAD PRIMARIA*/
+
+int main() {
+    /*------------------------------------------------------------------------------*/
+    /*Nomeando terminal*/
+    SetConsoleTitle("TERMINAL PRINCIPAL");
+
+    /*------------------------------------------------------------------------------*/
+    /*Thread secundaria*/
+    HANDLE hServidorSockets;
+
+    DWORD dwServidorSocketsId;
+    DWORD dwExitCode = 0;
+
+    int i = 1;
+
+    hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
+    if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
+
+    /*------------------------------------------------------------------------------*/
+    /*Teste*/
+
+    while (true) {
+        printf("1\n");
+        Sleep(10000);
+    }
+
+    /*------------------------------------------------------------------------------*/
+    /*Fecha handles*/
+
+    CloseHandle(hServidorSockets);
+}
+
+/* ======================================================================================================================== */
+/* THREAD SECUNDARIA*/
+
+DWORD WINAPI ServidorSockets(LPVOID index) {
     WSADATA wsaData;
     int iResult;
 
@@ -28,6 +81,7 @@ int __cdecl main(void)
 
     int iSendResult;
     char recvbuf[DEFAULT_BUFLEN];
+    char msgsetup[TAMMSGSTATUS + 1] = "99/0000002/02/0050.0/0040.0/00050";
     int recvbuflen = DEFAULT_BUFLEN;
 
     // Initialize Winsock
@@ -80,45 +134,47 @@ int __cdecl main(void)
         return 1;
     }
 
-    // Accept a client socket
-    ClientSocket = accept(ListenSocket, NULL, NULL);
-    if (ClientSocket == INVALID_SOCKET) {
-        printf("accept failed with error: %d\n", WSAGetLastError());
-        closesocket(ListenSocket);
-        WSACleanup();
-        return 1;
-    }
-
-    // No longer need server socket
-    closesocket(ListenSocket);
-
-    // Receive until the peer shuts down the connection
-    do {
-
-        iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-        if (iResult > 0) {
-            printf("Bytes received: %d\n", iResult);
-
-            // Echo the buffer back to the sender
-            iSendResult = send(ClientSocket, recvbuf, iResult, 0);
-            if (iSendResult == SOCKET_ERROR) {
-                printf("send failed with error: %d\n", WSAGetLastError());
-                closesocket(ClientSocket);
-                WSACleanup();
-                return 1;
-            }
-            printf("Bytes sent: %d\n", iSendResult);
-        }
-        else if (iResult == 0)
-            printf("Connection closing...\n");
-        else {
-            printf("recv failed with error: %d\n", WSAGetLastError());
-            closesocket(ClientSocket);
+    while (true) {
+        // Accept a client socket
+        ClientSocket = accept(ListenSocket, NULL, NULL);
+        if (ClientSocket == INVALID_SOCKET) {
+            printf("accept failed with error: %d\n", WSAGetLastError());
+            closesocket(ListenSocket);
             WSACleanup();
             return 1;
         }
 
-    } while (iResult > 0);
+        // Receive until the peer shuts down the connection
+        do {
+
+            iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+            if (iResult > 0) {
+                printf("Bytes received: %d\n", iResult);
+
+                // Echo the buffer back to the sender
+                iSendResult = send(ClientSocket, msgsetup, TAMMSGSTATUS, 0);
+                if (iSendResult == SOCKET_ERROR) {
+                    printf("send failed with error: %d\n", WSAGetLastError());
+                    closesocket(ClientSocket);
+                    WSACleanup();
+                    return 1;
+                }
+                printf("Bytes sent: %d\n", iSendResult);
+            }
+            else if (iResult == 0)
+                printf("Connection closing...\n");
+            else {
+                printf("recv failed with error: %d\n", WSAGetLastError());
+                closesocket(ClientSocket);
+                WSACleanup();
+                return 1;
+            }
+
+        } while (iResult > 0);
+    }
+
+    // No longer need server socket
+    closesocket(ListenSocket);
 
     // shutdown the connection since we're done
     iResult = shutdown(ClientSocket, SD_SEND);
@@ -133,5 +189,8 @@ int __cdecl main(void)
     closesocket(ClientSocket);
     WSACleanup();
 
-    return 0;
+    /*------------------------------------------------------------------------------*/
+    /*Finalizando a thread servidor de sockets*/
+    printf("Finalizando thread servidor de sockets\n");
+    ExitThread((DWORD)index);
 }
