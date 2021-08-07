@@ -101,7 +101,6 @@ using namespace std;
 /* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
-DWORD WINAPI EscritaSincrona(LPVOID index);
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -127,14 +126,6 @@ int nseq = 0;                                                   /*Valor referent
 VARIANT *sdadoLeitura;
 OPCHANDLE *shandleLeitura;
 
-IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
-IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
-
-OPCHANDLE hClientItem1;
-OPCHANDLE hClientItem2;
-OPCHANDLE hClientItem3;
-OPCHANDLE hClientItem4;
-
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
 
@@ -148,9 +139,9 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 	/*Criando thread secundaria*/
-	HANDLE hServidorSockets, hEscritaSincrona;
+	HANDLE hServidorSockets;
 
-	DWORD dwServidorSocketsId, dwEscritaSincronaId;
+	DWORD dwServidorSocketsId;
 	DWORD dwExitCode = 0;
 
 	int i = 1;
@@ -161,13 +152,22 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 
+	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
+	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
+
 	OPCHANDLE hServerGroup; // server handle to the group
+
 	OPCHANDLE hServerItem1;  // server handle to the item
 	OPCHANDLE hServerItem2;  // server handle to the item
 	OPCHANDLE hServerItem3;  // server handle to the item
 	OPCHANDLE hServerItem4;  // server handle to the item
 	OPCHANDLE hServerItem5;  // server handle to the item
 	OPCHANDLE hServerItem6;  // server handle to the item
+
+	OPCHANDLE hClientItem1;
+	OPCHANDLE hClientItem2;
+	OPCHANDLE hClientItem3;
+	OPCHANDLE hClientItem4;
 	
 	char buf[100];
 
@@ -225,12 +225,15 @@ void main(void) {
 
 	// Enter again a message pump in order to process the server´s callback
 	// notifications, for the same reason explained before.
-
-	i = 2;
-	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
-	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
 	
 	printf("Waiting for IOPCDataCallback notifications...\n");
+	char buffer[100];
+	VARIANT var;
+	::VariantInit(&var);
+	var.vt = VT_I4;
+	var.iVal = 0;
+	VarToStr(var, buffer);
+	
 
 	ticks1 = GetTickCount();
 	do {
@@ -246,7 +249,31 @@ void main(void) {
 		sdadoLeitura = pSOCDataCallback->sendValues();
 		shandleLeitura = pSOCDataCallback->sendHandles();
 
+		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
+		WriteItem(pIOPCItemMgt, hClientItem1, var);
+
+		var.iVal++;
+		VarToStr(var, buffer);
+
+		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem2);
+		WriteItem(pIOPCItemMgt, hClientItem2, var);
+
+		var.iVal++;
+		VarToStr(var, buffer);
+
+		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem3);
+		WriteItem(pIOPCItemMgt, hClientItem3, var);
+
+		var.iVal++;
+		VarToStr(var, buffer);
+
+		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
+		WriteItem(pIOPCItemMgt, hClientItem4, var);
+
 		printf("\n\n");
+
+		var.iVal++;
+		VarToStr(var, buffer);
 
         ticks2 = GetTickCount();
 	}
@@ -278,7 +305,6 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
-	CloseHandle(hEscritaSincrona);
 }
 
 
@@ -421,7 +447,8 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
 		},
-	
+
+
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_CLIENT_ID1,
@@ -485,12 +512,12 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 	hServerItem4 = pAddResult[3].hServer;
 	hServerItem5 = pAddResult[4].hServer;
 	hServerItem6 = pAddResult[5].hServer;
-
+	
 	hClientItem1 = pAddResult[6].hServer;
 	hClientItem2 = pAddResult[7].hServer;
 	hClientItem3 = pAddResult[8].hServer;
 	hClientItem4 = pAddResult[9].hServer;
-
+	
 	// release memory allocated by the server:
 	CoTaskMemFree(pAddResult->pBlob);
 
@@ -773,23 +800,5 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
 	/*Finalizando a thread servidor de sockets*/
 	printf("Finalizando thread servidor de sockets\n");
-	ExitThread((DWORD)index);
-}
-
-DWORD WINAPI EscritaSincrona(LPVOID index) {
-	char buffer[100];
-	VARIANT var;
-	::VariantInit(&var);
-	var.vt = VT_I4;
-	var.iVal = 7;
-
-	VarToStr(var, buffer);
-
-	while(TRUE) {
-		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
-		WriteItem(pIOPCItemMgt, hClientItem1, var);
-	}
-
-	printf("Finalizando thread de Escrita Sincrona\n");
 	ExitThread((DWORD)index);
 }
