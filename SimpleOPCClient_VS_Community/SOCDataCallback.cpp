@@ -14,7 +14,7 @@
 extern UINT OPC_DATA_TIME;
 
 //	Constructor.  Reference count is initialized to zero.
-SOCDataCallback::SOCDataCallback () : m_cnRef (0)
+SOCDataCallback::SOCDataCallback() : m_cnRef(0)
 	{
 	}
 
@@ -98,9 +98,6 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	FILETIME *pftTimeStamps,
 	HRESULT *pErrors)
 {
-	static VARIANT dadoLeitura[6];
-	static OPCHANDLE handleLeitura[6];
-
 	FILETIME lft;
 	SYSTEMTIME st;
     char szLocalDate[255], szLocalTime[255];
@@ -134,32 +131,30 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 		switch ((int)phClientItems[dwItem])
 		{
 			case 0:
-				dadoLeitura[0] = pvValues[dwItem];
-				handleLeitura[0] = phClientItems[dwItem];
+				this->dadoLeitura[0] = pvValues[dwItem];
+				this->handleLeitura[0] = phClientItems[dwItem];
 				break;
 			case 1:
-				dadoLeitura[1] = pvValues[dwItem];
-				handleLeitura[1] = phClientItems[dwItem];
+				this->dadoLeitura[1] = pvValues[dwItem];
+				this->handleLeitura[1] = phClientItems[dwItem];
 				break;
 			case 2:
-				dadoLeitura[2] = pvValues[dwItem];
-				handleLeitura[2] = phClientItems[dwItem];
+				this->dadoLeitura[2] = pvValues[dwItem];
+				this->handleLeitura[2] = phClientItems[dwItem];
 				break;
 			case 3:
-				dadoLeitura[3] = pvValues[dwItem];
-				handleLeitura[3] = phClientItems[dwItem];
+				this->dadoLeitura[3] = pvValues[dwItem];
+				this->handleLeitura[3] = phClientItems[dwItem];
 				break;
 			case 4:
-				dadoLeitura[4] = pvValues[dwItem];
-				handleLeitura[4] = phClientItems[dwItem];
+				this->dadoLeitura[4] = pvValues[dwItem];
+				this->handleLeitura[4] = phClientItems[dwItem];
 				break;
 			case 5:
-				dadoLeitura[5] = pvValues[dwItem];
-				handleLeitura[5] = phClientItems[dwItem];
+				this->dadoLeitura[5] = pvValues[dwItem];
+				this->handleLeitura[5] = phClientItems[dwItem];
 				break;
 		}
-
-
 
 		if (status){
 			printf("Data callback: Value = %s", buffer);
@@ -227,17 +222,10 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnCancelComplete(
 
 VARIANT* SOCDataCallback::sendValues()
 {
-	char buffer[100];
-	bool status = VarToStr(dadoLeitura[0], buffer);
-	printf("++ %s %d", buffer, status);
-	return dadoLeitura;
+	return this->dadoLeitura;
 }
 
 OPCHANDLE* SOCDataCallback::sendHandles()
 {
-	printf("++");
-	char buffer[100];
-	bool status = VarToStr(dadoLeitura[0], buffer);
-	printf("++ %s %d", buffer, status);
-	return handleLeitura;
+	return this->handleLeitura;
 }

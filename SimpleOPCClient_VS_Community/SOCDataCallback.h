@@ -16,7 +16,6 @@
 // **************************************************************************
 class SOCDataCallback : public IOPCDataCallback
 	{
-
 	public:
 
 		SOCDataCallback ();
@@ -68,13 +67,11 @@ class SOCDataCallback : public IOPCDataCallback
 
 		OPCHANDLE* sendHandles();
 
-		DWORD get_McnRef();
+		VARIANT dadoLeitura[6];
+		OPCHANDLE handleLeitura[6];
 
 	private:
 		DWORD m_cnRef;
-
-		VARIANT dadoLeitura[6];
-		OPCHANDLE handleLeitura[6];
 	};
 
 

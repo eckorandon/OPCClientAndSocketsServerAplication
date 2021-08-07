@@ -79,6 +79,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <math.h>                                               /*pow()*/
+#include <mutex>
 
 #include "opcda.h"
 #include "opcerror.h"
@@ -100,6 +101,7 @@ using namespace std;
 /* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
+DWORD WINAPI EscritaSincrona(LPVOID index);
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -115,13 +117,23 @@ wchar_t ITEM_ID4[] = L"Random.Real4";
 wchar_t ITEM_ID5[] = L"Saw-toothed Waves.Int2";
 wchar_t ITEM_ID6[]= L"Saw-toothed Waves.Real4";
 
+wchar_t ITEM_CLIENT_ID1[] = L"Bucket Brigade.Int1";
+wchar_t ITEM_CLIENT_ID2[] = L"Bucket Brigade.Int4";
+wchar_t ITEM_CLIENT_ID3[] = L"Bucket Brigade.Real4";
+wchar_t ITEM_CLIENT_ID4[] = L"Bucket Brigade.Real8";
+
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
-char aasdd[100];
-
 VARIANT *sdadoLeitura;
-
 OPCHANDLE *shandleLeitura;
+
+IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
+IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
+
+OPCHANDLE hClientItem1;
+OPCHANDLE hClientItem2;
+OPCHANDLE hClientItem3;
+OPCHANDLE hClientItem4;
 
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
@@ -136,19 +148,18 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 	/*Criando thread secundaria*/
-	HANDLE hServidorSockets;
+	HANDLE hServidorSockets, hEscritaSincrona;
 
-	DWORD dwServidorSocketsId;
+	DWORD dwServidorSocketsId, dwEscritaSincronaId;
 	DWORD dwExitCode = 0;
 
 	int i = 1;
 
+	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
 
 	/*------------------------------------------------------------------------------*/
-	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
-	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
 
 	OPCHANDLE hServerGroup; // server handle to the group
 	OPCHANDLE hServerItem1;  // server handle to the item
@@ -157,7 +168,6 @@ void main(void) {
 	OPCHANDLE hServerItem4;  // server handle to the item
 	OPCHANDLE hServerItem5;  // server handle to the item
 	OPCHANDLE hServerItem6;  // server handle to the item
-
 	
 	char buf[100];
 
@@ -190,7 +200,7 @@ void main(void) {
 	printf("Adding the item %s to the group...\n", buf);
 	wcstombs_s(&m, buf, 100, ITEM_ID6, _TRUNCATE);
 	printf("Adding the item %s to the group...\n", buf);
-	AddTheItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6);
+	AddTheItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6, hClientItem1, hClientItem2, hClientItem3, hClientItem4);
 
 	int bRet;
 	MSG msg;
@@ -215,28 +225,29 @@ void main(void) {
 
 	// Enter again a message pump in order to process the server´s callback
 	// notifications, for the same reason explained before.
-		
-	ticks1 = GetTickCount();
-	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
-	do {
-		sdadoLeitura = pSOCDataCallback->sendValues();
-		VarToStr(*sdadoLeitura, buf);
-		printf("-%s-", buf);
-		shandleLeitura = pSOCDataCallback->sendHandles();
 
+	i = 2;
+	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
+	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
+	
+	printf("Waiting for IOPCDataCallback notifications...\n");
+
+	ticks1 = GetTickCount();
+	do {
 		bRet = GetMessage(&msg, NULL, 0, 0);
 
-		if (!bRet){
-			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
+		if (!bRet) {
+			printf("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
-
 		
-		WriteItem(pIOPCItemMgt, shandleLeitura[0], sdadoLeitura[0]);
+		sdadoLeitura = pSOCDataCallback->sendValues();
+		shandleLeitura = pSOCDataCallback->sendHandles();
 
 		printf("\n\n");
+
         ticks2 = GetTickCount();
 	}
 	while ((ticks2 - ticks1) < 10000);
@@ -249,7 +260,7 @@ void main(void) {
 
 	// Remove the OPC item:
 	printf("Removing the OPC item...\n");
-	RemoveItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6);
+	RemoveItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6, hClientItem1, hClientItem2, hClientItem3, hClientItem4);
 
 	// Remove the OPC group:
 	printf("Removing the OPC group object...\n");
@@ -267,6 +278,7 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
+	CloseHandle(hEscritaSincrona);
 }
 
 
@@ -343,12 +355,12 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 // is pointed by pIOPCItemMgt pointer. Return a server opc handle
 // to the item.
  
-void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6)
+void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6, OPCHANDLE& hClientItem1, OPCHANDLE& hClientItem2, OPCHANDLE& hClientItem3, OPCHANDLE& hClientItem4)
 {
 	HRESULT hr;
 
 	// Array of items to add:
-	OPCITEMDEF ItemArray[6] =
+	OPCITEMDEF ItemArray[10] =
 	{{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID1,
@@ -408,14 +420,59 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		} };
+		},
+	
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID1,
+		/*bActive*/ TRUE,
+		/*hClient*/ 6,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID2,
+		/*bActive*/ TRUE,
+		/*hClient*/ 7,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID3,
+		/*bActive*/ TRUE,
+		/*hClient*/ 8,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID4,
+		/*bActive*/ TRUE,
+		/*hClient*/ 9,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+		}
+	};
 
 	//Add Result:
 	OPCITEMRESULT* pAddResult=NULL;
 	HRESULT* pErrors = NULL;
 
 	// Add an Item to the previous Group:
-	hr = pIOPCItemMgt->AddItems(6, ItemArray, &pAddResult, &pErrors);
+	hr = pIOPCItemMgt->AddItems(10, ItemArray, &pAddResult, &pErrors);
 	if (hr != S_OK){
 		printf("Failed call to AddItems function. Error code = %x\n", hr);
 		exit(0);
@@ -428,6 +485,11 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 	hServerItem4 = pAddResult[3].hServer;
 	hServerItem5 = pAddResult[4].hServer;
 	hServerItem6 = pAddResult[5].hServer;
+
+	hClientItem1 = pAddResult[6].hServer;
+	hClientItem2 = pAddResult[7].hServer;
+	hClientItem3 = pAddResult[8].hServer;
+	hClientItem4 = pAddResult[9].hServer;
 
 	// release memory allocated by the server:
 	CoTaskMemFree(pAddResult->pBlob);
@@ -447,9 +509,6 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 //
 void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
 {
-	// value of the item:
-	OPCITEMSTATE* pValue = NULL;
-
 	//get a pointer to the IOPCSyncIOInterface:
 	IOPCSyncIO* pIOPCSyncIO;
 	pGroupIUnknown->QueryInterface(__uuidof(pIOPCSyncIO), (void**) &pIOPCSyncIO);
@@ -468,9 +527,6 @@ void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValu
 	CoTaskMemFree(pErrors);
 	pErrors = NULL;
 
-	CoTaskMemFree(pValue);
-	pValue = NULL;
-
 	// release the reference to the IOPCSyncIO interface:
 	pIOPCSyncIO->Release();
 }
@@ -480,20 +536,24 @@ void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValu
 // Remove the item whose server handle is hServerItem from the group
 // whose IOPCItemMgt interface is pointed by pIOPCItemMgt
 //
-void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6)
+void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6, OPCHANDLE hClientItem1, OPCHANDLE hClientItem2, OPCHANDLE hClientItem3, OPCHANDLE hClientItem4)
 {
 	// server handle of items to remove:
-	OPCHANDLE hServerArray[6];
+	OPCHANDLE hServerArray[10];
 	hServerArray[0] = hServerItem;
 	hServerArray[1] = hServerItem2;
 	hServerArray[2] = hServerItem3;
 	hServerArray[3] = hServerItem4;
 	hServerArray[4] = hServerItem5;
 	hServerArray[5] = hServerItem6;
+	hServerArray[6] = hClientItem1;
+	hServerArray[7] = hClientItem2;
+	hServerArray[8] = hClientItem3;
+	hServerArray[9] = hClientItem4;
 	
 	//Remove the item:
 	HRESULT* pErrors; // to store error code(s)
-	HRESULT hr = pIOPCItemMgt->RemoveItems(6, hServerArray, &pErrors);
+	HRESULT hr = pIOPCItemMgt->RemoveItems(10, hServerArray, &pErrors);
 	_ASSERT(!hr);
 
 	//release memory allocated by the server:
@@ -713,5 +773,23 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
 	/*Finalizando a thread servidor de sockets*/
 	printf("Finalizando thread servidor de sockets\n");
+	ExitThread((DWORD)index);
+}
+
+DWORD WINAPI EscritaSincrona(LPVOID index) {
+	char buffer[100];
+	VARIANT var;
+	::VariantInit(&var);
+	var.vt = VT_I4;
+	var.iVal = 7;
+
+	VarToStr(var, buffer);
+
+	while(TRUE) {
+		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
+		WriteItem(pIOPCItemMgt, hClientItem1, var);
+	}
+
+	printf("Finalizando thread de Escrita Sincrona\n");
 	ExitThread((DWORD)index);
 }
