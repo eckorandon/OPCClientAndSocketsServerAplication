@@ -117,6 +117,12 @@ wchar_t ITEM_ID6[]= L"Saw-toothed Waves.Real4";
 
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
+char aasdd[100];
+
+VARIANT *sdadoLeitura;
+
+OPCHANDLE *shandleLeitura;
+
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
 
@@ -205,7 +211,7 @@ void main(void) {
 	// Change the group to the ACTIVE state so that we can receive the
 	// server´s callback notification
 	printf("Changing the group state to ACTIVE...\n");
-    SetGroupActive(pIOPCItemMgt); 
+    SetGroupActive(pIOPCItemMgt);
 
 	// Enter again a message pump in order to process the server´s callback
 	// notifications, for the same reason explained before.
@@ -213,7 +219,12 @@ void main(void) {
 	ticks1 = GetTickCount();
 	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
 	do {
-		bRet = GetMessage( &msg, NULL, 0, 0 );
+		sdadoLeitura = pSOCDataCallback->sendValues();
+		VarToStr(*sdadoLeitura, buf);
+		printf("-%s-", buf);
+		shandleLeitura = pSOCDataCallback->sendHandles();
+
+		bRet = GetMessage(&msg, NULL, 0, 0);
 
 		if (!bRet){
 			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
@@ -221,6 +232,10 @@ void main(void) {
 		}
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
+
+		
+		WriteItem(pIOPCItemMgt, shandleLeitura[0], sdadoLeitura[0]);
+
 		printf("\n\n");
         ticks2 = GetTickCount();
 	}
@@ -430,7 +445,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 // handle and belonging to the group whose one interface is pointed by
 // pGroupIUnknown. The value is put in varValue. 
 //
-void ReadItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
+void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
 {
 	// value of the item:
 	OPCITEMSTATE* pValue = NULL;
@@ -440,12 +455,14 @@ void ReadItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue
 	pGroupIUnknown->QueryInterface(__uuidof(pIOPCSyncIO), (void**) &pIOPCSyncIO);
 
 	// read the item value from the device:
-	HRESULT* pErrors = NULL; //to store error code(s)
-	HRESULT hr = pIOPCSyncIO->Read(OPC_DS_DEVICE, 1, &hServerItem, &pValue, &pErrors);
-	_ASSERT(!hr);
-	_ASSERT(pValue!=NULL);
 
-	varValue = pValue[0].vDataValue;
+	HRESULT* pErrors = NULL;
+
+	HRESULT hr = pIOPCSyncIO->Write(1, &hServerItem, &varValue, &pErrors);
+	if (hr != S_OK) {
+		printf("Failed to send message %x.\n", hr);
+		exit(0);
+	}
 
 	//Release memeory allocated by the OPC server:
 	CoTaskMemFree(pErrors);
@@ -514,18 +531,18 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	SOCKET              ClientSocket = INVALID_SOCKET;
 
 	struct addrinfo* result = NULL;
-	struct addrinfo     hints;
+	struct addrinfo hints;
 
-	SYSTEMTIME          SystemTime;
+	SYSTEMTIME SystemTime;
 
-	int                 iResult,
+	int iResult,
 		iSendResult,
 		k = 0,
 		recvbuflen = DEFAULT_BUFLEN;
 
-	char                recvbuf[DEFAULT_BUFLEN],
-		msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
-		msgack[TAMMSGACK + 1] = "22/#######";
+	char recvbuf[DEFAULT_BUFLEN],
+		 msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
+		 msgack[TAMMSGACK + 1] = "22/#######";
 
 	/*------------------------------------------------------------------------------*/
 	/*Configuracoes do servidor*/

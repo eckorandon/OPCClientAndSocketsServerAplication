@@ -98,6 +98,9 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	FILETIME *pftTimeStamps,
 	HRESULT *pErrors)
 {
+	static VARIANT dadoLeitura[6];
+	static OPCHANDLE handleLeitura[6];
+
 	FILETIME lft;
 	SYSTEMTIME st;
     char szLocalDate[255], szLocalTime[255];
@@ -127,6 +130,37 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 		// Print the item value, quality and time stamp. In this example, only
 		// a few OPC data types are supported.
 		status = VarToStr(pvValues[dwItem], buffer);
+
+		switch ((int)phClientItems[dwItem])
+		{
+			case 0:
+				dadoLeitura[0] = pvValues[dwItem];
+				handleLeitura[0] = phClientItems[dwItem];
+				break;
+			case 1:
+				dadoLeitura[1] = pvValues[dwItem];
+				handleLeitura[1] = phClientItems[dwItem];
+				break;
+			case 2:
+				dadoLeitura[2] = pvValues[dwItem];
+				handleLeitura[2] = phClientItems[dwItem];
+				break;
+			case 3:
+				dadoLeitura[3] = pvValues[dwItem];
+				handleLeitura[3] = phClientItems[dwItem];
+				break;
+			case 4:
+				dadoLeitura[4] = pvValues[dwItem];
+				handleLeitura[4] = phClientItems[dwItem];
+				break;
+			case 5:
+				dadoLeitura[5] = pvValues[dwItem];
+				handleLeitura[5] = phClientItems[dwItem];
+				break;
+		}
+
+
+
 		if (status){
 			printf("Data callback: Value = %s", buffer);
 			quality = pwQualities [dwItem] & OPC_QUALITY_MASK;
@@ -189,4 +223,21 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnCancelComplete(
 	OPCHANDLE hGroup)
 {
 	return(S_OK);
+}
+
+VARIANT* SOCDataCallback::sendValues()
+{
+	char buffer[100];
+	bool status = VarToStr(dadoLeitura[0], buffer);
+	printf("++ %s %d", buffer, status);
+	return dadoLeitura;
+}
+
+OPCHANDLE* SOCDataCallback::sendHandles()
+{
+	printf("++");
+	char buffer[100];
+	bool status = VarToStr(dadoLeitura[0], buffer);
+	printf("++ %s %d", buffer, status);
+	return handleLeitura;
 }
