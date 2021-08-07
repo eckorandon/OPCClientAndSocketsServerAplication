@@ -97,7 +97,6 @@
 #include "opcda.h"
 #include "opcerror.h"
 #include "SimpleOPCClient_v3.h"
-#include "SOCAdviseSink.h"
 #include "SOCDataCallback.h"
 #include "SOCWrapperFunctions.h"
 
@@ -179,7 +178,6 @@ void main(void) {
 	int bRet;
 	MSG msg;
 	DWORD ticks1, ticks2;
-	string mensagem;
     
 	// Establish a callback asynchronous read by means of the IOPCDataCallback
 	// (OPC DA 2.0) method. We first instantiate a new SOCDataCallback object and
@@ -204,9 +202,8 @@ void main(void) {
 	ticks1 = GetTickCount();
 	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
 	do {
-		mensagem = GetMessage( &msg, NULL, 0, 0 );
-		printf("-%s", mensagem);
-		if (!1){
+		bRet = GetMessage( &msg, NULL, 0, 0 );
+		if (!bRet){
 			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
@@ -359,40 +356,6 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem)
 
 	CoTaskMemFree(pErrors);
 	pErrors = NULL;
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
-// Read from device the value of the item having the "hServerItem" server 
-// handle and belonging to the group whose one interface is pointed by
-// pGroupIUnknown. The value is put in varValue. 
-//
-void ReadItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
-{
-	// value of the item:
-	OPCITEMSTATE* pValue = NULL;
-
-	//get a pointer to the IOPCSyncIOInterface:
-	IOPCSyncIO* pIOPCSyncIO;
-	pGroupIUnknown->QueryInterface(__uuidof(pIOPCSyncIO), (void**) &pIOPCSyncIO);
-
-	// read the item value from the device:
-	HRESULT* pErrors = NULL; //to store error code(s)
-	HRESULT hr = pIOPCSyncIO->Read(OPC_DS_DEVICE, 1, &hServerItem, &pValue, &pErrors);
-	_ASSERT(!hr);
-	_ASSERT(pValue!=NULL);
-
-	varValue = pValue[0].vDataValue;
-
-	//Release memeory allocated by the OPC server:
-	CoTaskMemFree(pErrors);
-	pErrors = NULL;
-
-	CoTaskMemFree(pValue);
-	pValue = NULL;
-
-	// release the reference to the IOPCSyncIO interface:
-	pIOPCSyncIO->Release();
 }
 
 
