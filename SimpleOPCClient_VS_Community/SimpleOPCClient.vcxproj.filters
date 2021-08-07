@@ -38,9 +38,6 @@
     <ClInclude Include="SimpleOPCClient_v3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SOCAdviseSink.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SOCDataCallback.h">
       <Filter>Header Files</Filter>
     </ClInclude>

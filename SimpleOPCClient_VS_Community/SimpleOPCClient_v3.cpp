@@ -113,6 +113,7 @@ using namespace std;
 /* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
+DWORD WINAPI EscritaSincrona(LPVOID index);
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -125,6 +126,13 @@ wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
 
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
+VARIANT*	sDadoLeitura;
+OPCHANDLE*	sHandleLeitura;
+
+char	aux[8];
+
+float	item[6];
+
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
 /* LE OS VALORES DOS ITEMS EM UM SERVIDO OPC*/
@@ -136,15 +144,20 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 	/*Criando thread secundaria*/
-	HANDLE hServidorSockets;
+	HANDLE hServidorSockets, hEscritaSincrona;
 
-	DWORD dwServidorSocketsId;
+	DWORD dwServidorSocketsId, dwEscritaSincronaId;
 	DWORD dwExitCode = 0;
 
 	int i = 1;
 
+	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
+
+	i = 2;
+	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
+	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
 
 	/*------------------------------------------------------------------------------*/
 	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
@@ -177,7 +190,6 @@ void main(void) {
 	
 	int bRet;
 	MSG msg;
-	DWORD ticks1, ticks2;
     
 	// Establish a callback asynchronous read by means of the IOPCDataCallback
 	// (OPC DA 2.0) method. We first instantiate a new SOCDataCallback object and
@@ -198,10 +210,9 @@ void main(void) {
 
 	// Enter again a message pump in order to process the server´s callback
 	// notifications, for the same reason explained before.
-		
-	ticks1 = GetTickCount();
+	
 	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
-	do {
+	while (true) {
 		bRet = GetMessage( &msg, NULL, 0, 0 );
 		if (!bRet){
 			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
@@ -211,9 +222,19 @@ void main(void) {
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
 
-        ticks2 = GetTickCount();
+		sDadoLeitura	= pSOCDataCallback->sendValues();
+		sHandleLeitura	= pSOCDataCallback->sendHandles();
+
+		for (int j = 0; j < 6; j++) {
+			VarToStr(sDadoLeitura[j], aux);
+			item[j] = strtof(aux, NULL);
+		}
+
+		for (int j = 0; j < 6; j++) {
+			printf("Campo %d - Valor %f\n", j, item[j]);
+		}
+
 	}
-	while ((ticks2 - ticks1) < 10000);
 
 	// Cancel the callback and release its reference
 	printf("Cancelling the IOPCDataCallback notifications...\n");
@@ -241,6 +262,7 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
+	CloseHandle(hEscritaSincrona);
 }
 
 
@@ -414,14 +436,14 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
 	SYSTEMTIME          SystemTime;
 
-	int                 iResult,
-		iSendResult,
-		k = 0,
-		recvbuflen = DEFAULT_BUFLEN;
+	int		iResult,
+			iSendResult,
+			k = 0,
+			recvbuflen = DEFAULT_BUFLEN;
 
-	char                recvbuf[DEFAULT_BUFLEN],
-		msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
-		msgack[TAMMSGACK + 1] = "22/#######";
+	char	recvbuf[DEFAULT_BUFLEN],
+			msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
+			msgack[TAMMSGACK + 1] = "22/#######";
 
 	/*------------------------------------------------------------------------------*/
 	/*Configuracoes do servidor*/
@@ -591,6 +613,24 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
 	/*------------------------------------------------------------------------------*/
 	/*Finalizando a thread servidor de sockets*/
+	printf("Finalizando thread servidor de sockets\n");
+	ExitThread((DWORD)index);
+}
+
+
+/* ======================================================================================================================== */
+/* THREAD SECUNDARIA*/
+/* */
+
+DWORD WINAPI EscritaSincrona(LPVOID index) {
+
+	while (true){
+		printf("2\n");
+		Sleep(3000);
+	}
+
+	/*------------------------------------------------------------------------------*/
+	/*Finalizando a thread de escrita sincrona*/
 	printf("Finalizando thread servidor de sockets\n");
 	ExitThread((DWORD)index);
 }

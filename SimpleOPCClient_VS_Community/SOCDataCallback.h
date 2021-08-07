@@ -62,6 +62,13 @@ class SOCDataCallback : public IOPCDataCallback
 			DWORD dwTransID,			// Transaction ID provided by the client when the read/write/refresh was initiated
 			OPCHANDLE hGroup);
 
+		VARIANT*	sendValues();
+
+		OPCHANDLE*	sendHandles();
+
+		VARIANT		DadoLeitura[6];
+		OPCHANDLE	HandleLeitura[6];
+
 	private:
 		DWORD m_cnRef;
 	};

@@ -97,7 +97,6 @@
     <ClInclude Include="opcda.h" />
     <ClInclude Include="opcerror.h" />
     <ClInclude Include="SimpleOPCClient_v3.h" />
-    <ClInclude Include="SOCAdviseSink.h" />
     <ClInclude Include="SOCDataCallback.h" />
     <ClInclude Include="SOCWrapperFunctions.h" />
   </ItemGroup>

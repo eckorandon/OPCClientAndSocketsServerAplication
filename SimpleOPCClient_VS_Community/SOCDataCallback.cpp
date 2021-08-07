@@ -126,7 +126,40 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 		// Print the item value, quality and time stamp. In this example, only
 		// a few OPC data types are supported.
 		status = VarToStr(pvValues[dwItem], buffer);
-		if (status){
+
+		/*CODIGO ACRESCENTADO*/
+		switch ((int)phClientItems[dwItem]) {
+			case 0:
+				this->DadoLeitura[0] = pvValues[dwItem];
+				this->HandleLeitura[0] = phClientItems[dwItem];
+				break;
+			case 1:
+				this->DadoLeitura[1] = pvValues[dwItem];
+				this->HandleLeitura[1] = phClientItems[dwItem];
+				break;
+			case 2:
+				this->DadoLeitura[2] = pvValues[dwItem];
+				this->HandleLeitura[2] = phClientItems[dwItem];
+				break;
+			case 3:
+				this->DadoLeitura[3] = pvValues[dwItem];
+				this->HandleLeitura[3] = phClientItems[dwItem];
+				break;
+			case 4:
+				this->DadoLeitura[4] = pvValues[dwItem];
+				this->HandleLeitura[4] = phClientItems[dwItem];
+				break;
+			case 5:
+				this->DadoLeitura[5] = pvValues[dwItem];
+				this->HandleLeitura[5] = phClientItems[dwItem];
+				break;
+			default:
+				printf("IOPCDataCallback: Unsupported item type\n");
+				break;
+		}
+
+		/*CODIGO MODIFICADO*/
+		if (0){
 			printf("Data callback: Value = %s", buffer);
 			quality = pwQualities [dwItem] & OPC_QUALITY_MASK;
 			if (quality == OPC_QUALITY_GOOD)
@@ -147,7 +180,7 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 			GetTimeFormat(LOCALE_SYSTEM_DEFAULT, 0, &st, NULL, szLocalTime, 255);
 			printf(" Time: %s %s\n", szLocalDate, szLocalTime);
 		}
-		else printf ("IOPCDataCallback: Unsupported item type\n");
+		else if(0) printf ("IOPCDataCallback: Unsupported item type\n");
 	}
 
 	// Return "success" code.  Note this does not mean that there were no 
@@ -188,4 +221,14 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnCancelComplete(
 	OPCHANDLE hGroup)
 {
 	return(S_OK);
+}
+
+VARIANT* SOCDataCallback::sendValues()
+{
+	return this->DadoLeitura;
+}
+
+OPCHANDLE* SOCDataCallback::sendHandles()
+{
+	return this->HandleLeitura;
 }
