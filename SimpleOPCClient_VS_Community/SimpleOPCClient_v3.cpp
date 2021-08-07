@@ -154,7 +154,6 @@ void main(void) {
 	OPCHANDLE hServerGroup; // server handle to the group
 	OPCHANDLE hServerItem;  // server handle to the item
 
-	
 	char buf[100];
 
 	// Have to be done before using microsoft COM library:
@@ -176,79 +175,13 @@ void main(void) {
 	wcstombs_s(&m, buf, 100, ITEM_ID, _TRUNCATE);
 	printf("Adding the item %s to the group...\n", buf);
     AddTheItem(pIOPCItemMgt, hServerItem);
-
-	//Synchronous read of the device´s item value.
-	VARIANT varValue; //to store the read value
-	VariantInit(&varValue);
-	printf ("Reading synchronously during 10 seconds...\n");
-	for (i=0; i<10; i++) {
-	  ReadItem(pIOPCItemMgt, hServerItem, varValue);
-	  // print the read value:
-	  printf("Read value: %6.2f\n", varValue.fltVal);
-	  // wait 1 second
-	  Sleep(1000);
-	}
 	
-	// Establish a callback asynchronous read by means of the old IAdviseSink()
-	// (OPC DA 1.0) method. We first instantiate a new SOCAdviseSink object and
-	// adjusts its reference count, and then call a wrapper function to
-	// setup the callback.
-	IDataObject* pIDataObject = NULL; //pointer to IDataObject interface
-	DWORD tkAsyncConnection = 0;
-	SOCAdviseSink* pSOCAdviseSink = new SOCAdviseSink ();
-	pSOCAdviseSink->AddRef();
-    printf("Setting up the IAdviseSink callback connection...\n");
-    SetAdviseSink(pIOPCItemMgt, pSOCAdviseSink, pIDataObject, &tkAsyncConnection);
-
-	// Change the group to the ACTIVE state so that we can receive the
-	// server´s callback notification
-	printf("Changing the group state to ACTIVE...\n");
-    SetGroupActive(pIOPCItemMgt); 
-
-	// Enters a message pump in order to process the server´s callback
-	// notifications. This is needed because the CoInitialize() function
-	// forces the COM threading model to STA (Single Threaded Apartment),
-	// in which, according to the MSDN, "all method calls to a COM object
-	// (...) are synchronized with the windows message queue for the
-	// single-threaded apartment's thread." So, even being a console
-	// application, the OPC client must process messages (which in this case
-	// are only useless WM_USER [0x0400] messages) in order to process
-	// incoming callbacks from a OPC server.
-	//
-	// A better alternative could be to use the CoInitializeEx() function,
-	// which allows one to  specifiy the desired COM threading model;
-	// in particular, calling
-	//        CoInitializeEx(NULL, COINIT_MULTITHREADED)
-	// sets the model to MTA (MultiThreaded Apartments) in which a message
-	// loop is __not required__ since objects in this model are able to
-	// receive method calls from other threads at any time. However, in the
-	// MTA model the user is required to handle any aspects regarding
-	// concurrency, since asynchronous, multiple calls to the object methods
-	// can occur.
-	//
 	int bRet;
 	MSG msg;
 	DWORD ticks1, ticks2;
-	ticks1 = GetTickCount();
-	printf("Waiting for IAdviseSink callback notifications during 10 seconds...\n");
-	do {
-		bRet = GetMessage( &msg, NULL, 0, 0 );
-		if (!bRet){
-			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
-			exit(0);
-		}
-		TranslateMessage(&msg); // This call is not really needed ...
-		DispatchMessage(&msg);  // ... but this one is!
-        ticks2 = GetTickCount();
-	}
-	while ((ticks2 - ticks1) < 10000);
-
-	// Cancel the callback and release its reference
-	printf("Cancelling the IAdviseSink callback...\n");
-    CancelAdviseSink(pIDataObject, tkAsyncConnection);
-	pSOCAdviseSink->Release();
+	string mensagem;
     
-	// Establish a callback asynchronous read by means of the IOPCDaraCallback
+	// Establish a callback asynchronous read by means of the IOPCDataCallback
 	// (OPC DA 2.0) method. We first instantiate a new SOCDataCallback object and
 	// adjusts its reference count, and then call a wrapper function to
 	// setup the callback.
@@ -271,13 +204,16 @@ void main(void) {
 	ticks1 = GetTickCount();
 	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
 	do {
-		bRet = GetMessage( &msg, NULL, 0, 0 );
-		if (!bRet){
+		mensagem = GetMessage( &msg, NULL, 0, 0 );
+		printf("-%s", mensagem);
+		if (!1){
 			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
+
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
+
         ticks2 = GetTickCount();
 	}
 	while ((ticks2 - ticks1) < 10000);
