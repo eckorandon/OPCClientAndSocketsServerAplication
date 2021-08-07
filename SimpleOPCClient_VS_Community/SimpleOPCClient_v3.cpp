@@ -15,9 +15,9 @@
 
 	Data: Agosto de 2021
 
-	Aplicação multi thread que tem como objetivo a integracao de um servidor de sockets
-	e um cliente OPC. O servidor de sockets de comunica com um cliente de sockets
-	instalado em outra maquina de uma mesma rede e o cliente OPC se comunica com um
+	Aplicacao multithread que tem como objetivo a integracao de um servidor de sockets
+	e um cliente OPC. O servidor de sockets se comunica com um cliente de sockets
+	instalado em outra maquina em uma mesma rede local e o cliente OPC se comunica com um
 	servidor OPC.
 */
 
