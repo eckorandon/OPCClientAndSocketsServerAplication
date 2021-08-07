@@ -33,33 +33,35 @@
 	produto a ser envasado.
 */
 
-// Para a correta compilacao deste programa, nao se esqueca de incluir a
-// biblioteca Winsock2 (Ws2_32.lib) no projeto ! (No Visual C++ Express Edition:
-// Project->Properties->Configuration Properties->Linker->Input->Additional Dependencies).
+/* ======================================================================================================================== */
+/* BIBLIOTECA WINSOCK2*/
+/*
+	Para que o programa compile e funcione corretamente e necessario incluir a biblioteca 
+	Winsock2 (Ws2_32.lib) no projeto. Para isso siga os seguintes passos:
+	
+	1. No Visual Studio Community Edition va em
+	Project->Properties->Configuration Properties->Linker->Input
+	
+	2. No campo Additional Dependencies adicione a biblioteca Ws2_32.lib
+*/
 
-// Simple OPC Client
-//
-// This is a modified version of the "Simple OPC Client" originally
-// developed by Philippe Gras (CERN) for demonstrating the basic techniques
-// involved in the development of an OPC DA client.
-//
-// The modifications are the introduction of two C++ classes to allow the
-// the client to ask for callback notifications from the OPC server, and
-// the corresponding introduction of a message comsumption loop in the
-// main program to allow the client to process those notifications. The
-// C++ classes implement the OPC DA 1.0 IAdviseSink and the OPC DA 2.0
-// IOPCDataCallback client interfaces, and in turn were adapted from the
-// KEPWARE´s  OPC client sample code. A few wrapper functions to initiate
-// and to cancel the notifications were also developed.
-//
-// The original Simple OPC Client code can still be found (as of this date)
-// in
-//        http://pgras.home.cern.ch/pgras/OPCClientTutorial/
-//
-//
-// Luiz T. S. Mendes - DELT/UFMG - 15 Sept 2011
-// luizt at cpdee.ufmg.br
-//
+/* ======================================================================================================================== */
+/* CREDITOS*/
+/*
+	A thread principal da nossa aplicacao e baseada na versao "Simple OPC Client"
+	desenvolvida por Philippe Gras (CERN) e pode ser encontrada na data atual em
+	http://pgras.home.cern.ch/pgras/OPCClientTutorial/
+
+	A mesma foi alterada pelo professor Luiz T. S. Mendes do DELT/UFMG em 
+	15 Setembro de 2011, onde ele introduziu duas classes em C++ para permitir
+	que o cliente OPC requisite callback notifications de um servidor OPC.
+	Também foi necessario incluir um loop de consumo de mensagens no programa 
+	principal para permitir que o cliente OPC processe essas notificacoes.
+	As classes em C++ implementam as interfaces para o cliente do 
+	OPC DA 1.0 IAdviseSink e do OPC DA 2.0 IOPCDataCallback.
+	Algumas funcoes para inicializacao e cancelamento das funcoes tambem
+	foram implementadas.
+*/
 
 #undef UNICODE
 
@@ -125,11 +127,9 @@ wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
 /* ======================================================================================================================== */
-/*  THREAD PRIMARIA*/
+/* THREAD PRIMARIA*/
+/* LE OS VALORES DOS ITEMS EM UM SERVIDO OPC*/
 
-//////////////////////////////////////////////////////////////////////
-// Read the value of an item on an OPC server. 
-//
 void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Nomeando terminal*/
@@ -498,9 +498,10 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 }
 
 
-////////////////////////////////////////////////////////////////////////
-//
-//
+/* ======================================================================================================================== */
+/* THREAD SECUNDARIA*/
+/* */
+
 DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
 	/*Declarando variaveis locais*/
