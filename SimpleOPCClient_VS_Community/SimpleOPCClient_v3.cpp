@@ -19,6 +19,18 @@
 	e um cliente OPC. O servidor de sockets se comunica com um cliente de sockets
 	instalado em outra maquina em uma mesma rede local e o cliente OPC se comunica com um
 	servidor OPC.
+
+	O cliente de sockets funciona como um MES (Manufacturing Execution System), que 
+	basicamente tem o objetivo de capturar de maneira contínua informações da planta 
+	industrial e da area de gestao de negocios da empresa para a geracao de scheduling. 
+	Ja o servidor OPC, do tipo classico, se comunica diretamente com os CLPs 
+	(Controladores Logicos Programaveis) que sao os responsaveis pelo controle das linhas 
+	de envase do processo de producao de bebidas nao alcoolicas.
+	
+	Desse modo, o MES deve ser abastecido de maneira continua com os dados do status da 
+	planta que estão disponiveis no servidor OPC e os CLPs devem receber valores de setup 
+	de producao provenientes do MES, esse valores correspondem a cada tipo diferente de 
+	produto a ser envasado.
 */
 
 // Para a correta compilacao deste programa, nao se esqueca de incluir a
