@@ -90,7 +90,6 @@
   <ItemGroup>
     <ClCompile Include="opcda_i.c" />
     <ClCompile Include="SimpleOPCClient_v3.cpp" />
-    <ClCompile Include="SOCAdviseSink.cpp" />
     <ClCompile Include="SOCDataCallback.cpp" />
     <ClCompile Include="SOCWrapperlFunctions.cpp" />
   </ItemGroup>
