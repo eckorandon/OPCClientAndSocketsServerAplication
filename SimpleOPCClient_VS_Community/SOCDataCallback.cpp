@@ -2,7 +2,7 @@
 // C++ class to implement the OPC DA 2.0 IOPCDataCallback interface.
 //
 // Note that only the ::OnDataChangeMethod() is currently implemented
-// here. This code is largely based on the KEPWARE´s sample client code.
+// here. This code is largely based on the KEPWAREÂ´s sample client code.
 //
 // Luiz T. S. Mendes - DELT/UFMG - 13 Sept 2011
 //
@@ -14,7 +14,7 @@
 extern UINT OPC_DATA_TIME;
 
 //	Constructor.  Reference count is initialized to zero.
-SOCDataCallback::SOCDataCallback () : m_cnRef (0)
+SOCDataCallback::SOCDataCallback() : m_cnRef(0)
 	{
 	}
 
@@ -106,8 +106,8 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	WORD quality;
 
 	// Validate arguments.  Return with "invalid argument" error code 
-	// if any are invalid. KEPWARE´s original code checks also if the
-	// "hgroup" parameter (the client´s handle for the group) was also
+	// if any are invalid. KEPWAREÂ´s original code checks also if the
+	// "hgroup" parameter (the clientÂ´s handle for the group) was also
 	// NULL, but we dropped this check since the Simple OPC Client
 	// sets the client handle to 0 ...
 	if (dwCount					== 0	||
@@ -123,49 +123,48 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	// Loop over items:
 	for (DWORD dwItem = 0; dwItem < dwCount; dwItem++)
 	{
+		//printf("Advised Client OPCHANDLE: %2d\n", phClientItems[dwItem]);
 		// Print the item value, quality and time stamp. In this example, only
 		// a few OPC data types are supported.
 		status = VarToStr(pvValues[dwItem], buffer);
 
-		/*CODIGO ACRESCENTADO*/
-		switch ((int)phClientItems[dwItem]) {
+		switch ((int)phClientItems[dwItem])
+		{
 			case 0:
-				this->DadoLeitura[0] = pvValues[dwItem];
-				this->HandleLeitura[0] = phClientItems[dwItem];
+				this->dadoLeitura[0] = pvValues[dwItem];
+				this->handleLeitura[0] = phClientItems[dwItem];
 				break;
 			case 1:
-				this->DadoLeitura[1] = pvValues[dwItem];
-				this->HandleLeitura[1] = phClientItems[dwItem];
+				this->dadoLeitura[1] = pvValues[dwItem];
+				this->handleLeitura[1] = phClientItems[dwItem];
 				break;
 			case 2:
-				this->DadoLeitura[2] = pvValues[dwItem];
-				this->HandleLeitura[2] = phClientItems[dwItem];
+				this->dadoLeitura[2] = pvValues[dwItem];
+				this->handleLeitura[2] = phClientItems[dwItem];
 				break;
 			case 3:
-				this->DadoLeitura[3] = pvValues[dwItem];
-				this->HandleLeitura[3] = phClientItems[dwItem];
+				this->dadoLeitura[3] = pvValues[dwItem];
+				this->handleLeitura[3] = phClientItems[dwItem];
 				break;
 			case 4:
-				this->DadoLeitura[4] = pvValues[dwItem];
-				this->HandleLeitura[4] = phClientItems[dwItem];
+				this->dadoLeitura[4] = pvValues[dwItem];
+				this->handleLeitura[4] = phClientItems[dwItem];
 				break;
 			case 5:
-				this->DadoLeitura[5] = pvValues[dwItem];
-				this->HandleLeitura[5] = phClientItems[dwItem];
-				break;
-			default:
-				printf("IOPCDataCallback: Unsupported item type\n");
+				this->dadoLeitura[5] = pvValues[dwItem];
+				this->handleLeitura[5] = phClientItems[dwItem];
 				break;
 		}
 
-		/*CODIGO MODIFICADO*/
-		if (0){
+		if (status){
+			/*
 			printf("Data callback: Value = %s", buffer);
 			quality = pwQualities [dwItem] & OPC_QUALITY_MASK;
 			if (quality == OPC_QUALITY_GOOD)
 				printf(" Quality: good");
 			else
 			    printf(" Quality: not good");
+				*/
 			// Code below extracted from the Microsoft KB:
 			//     http://support.microsoft.com/kb/188768
 			// Note that in order for it to work, the Visual Studio C++ must
@@ -174,11 +173,13 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 			// Otherwise, if defined e.g. as "use Unicode" (as it seems to be
 			// the default when a new project is created), there will be
 			// compilation errors.
+			/*
 			FileTimeToLocalFileTime(&pftTimeStamps [dwItem],&lft);
 			FileTimeToSystemTime(&lft, &st);
 			GetDateFormat(LOCALE_SYSTEM_DEFAULT, DATE_SHORTDATE, &st, NULL, szLocalDate, 255);
 			GetTimeFormat(LOCALE_SYSTEM_DEFAULT, 0, &st, NULL, szLocalTime, 255);
 			printf(" Time: %s %s\n", szLocalDate, szLocalTime);
+			*/
 		}
 		else if(0) printf ("IOPCDataCallback: Unsupported item type\n");
 	}
@@ -218,17 +219,14 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnWriteComplete(
 
 HRESULT STDMETHODCALLTYPE SOCDataCallback::OnCancelComplete(
 	DWORD dwTransID,
-	OPCHANDLE hGroup)
-{
+	OPCHANDLE hGroup) {
 	return(S_OK);
 }
 
-VARIANT* SOCDataCallback::sendValues()
-{
-	return this->DadoLeitura;
+VARIANT* SOCDataCallback::sendValues() {
+	return this->dadoLeitura;
 }
 
-OPCHANDLE* SOCDataCallback::sendHandles()
-{
-	return this->HandleLeitura;
+OPCHANDLE* SOCDataCallback::sendHandles() {
+	return this->handleLeitura;
 }

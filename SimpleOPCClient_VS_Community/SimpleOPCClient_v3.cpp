@@ -20,28 +20,28 @@
 	instalado em outra maquina em uma mesma rede local e o cliente OPC se comunica com um
 	servidor OPC.
 
-	O cliente de sockets funciona como um MES (Manufacturing Execution System), que 
-	basicamente tem o objetivo de capturar de maneira contÌnua informaÁıes da planta 
-	industrial e da area de gestao de negocios da empresa para a geracao de scheduling. 
-	Ja o servidor OPC, do tipo classico, se comunica diretamente com os CLPs 
-	(Controladores Logicos Programaveis) que sao os responsaveis pelo controle das linhas 
+	O cliente de sockets funciona como um MES (Manufacturing Execution System), que
+	basicamente tem o objetivo de capturar de maneira cont√≠nua informa√ß√µes da planta
+	industrial e da area de gestao de negocios da empresa para a geracao de scheduling.
+	Ja o servidor OPC, do tipo classico, se comunica diretamente com os CLPs
+	(Controladores Logicos Programaveis) que sao os responsaveis pelo controle das linhas
 	de envase do processo de producao de bebidas nao alcoolicas.
-	
-	Desse modo, o MES deve ser abastecido de maneira continua com os dados do status da 
-	planta que est„o disponiveis no servidor OPC e os CLPs devem receber valores de setup 
-	de producao provenientes do MES, esse valores correspondem a cada tipo diferente de 
+
+	Desse modo, o MES deve ser abastecido de maneira continua com os dados do status da
+	planta que est√£o disponiveis no servidor OPC e os CLPs devem receber valores de setup
+	de producao provenientes do MES, esse valores correspondem a cada tipo diferente de
 	produto a ser envasado.
 */
 
 /* ======================================================================================================================== */
 /* BIBLIOTECA WINSOCK2*/
 /*
-	Para que o programa compile e funcione corretamente e necessario incluir a biblioteca 
+	Para que o programa compile e funcione corretamente e necessario incluir a biblioteca
 	Winsock2 (Ws2_32.lib) no projeto. Para isso siga os seguintes passos:
-	
+
 	1. No Visual Studio Community Edition va em
 	Project->Properties->Configuration Properties->Linker->Input
-	
+
 	2. No campo Additional Dependencies adicione a biblioteca Ws2_32.lib
 */
 
@@ -52,15 +52,15 @@
 	desenvolvida por Philippe Gras (CERN) e pode ser encontrada na data atual em
 	http://pgras.home.cern.ch/pgras/OPCClientTutorial/
 
-	A mesma foi alterada pelo professor Luiz T. S. Mendes do DELT/UFMG em 
+	A mesma foi alterada pelo professor Luiz T. S. Mendes do DELT/UFMG em
 	15 Setembro de 2011, onde ele introduziu duas classes em C++ para permitir
 	que o cliente OPC requisite callback notifications de um servidor OPC.
-	TambÈm foi necessario incluir um loop de consumo de mensagens no programa 
+	Tamb√©m foi necessario incluir um loop de consumo de mensagens no programa
 	principal para permitir que o cliente OPC processe essas notificacoes.
-	As classes em C++ implementam as interfaces para o cliente do 
-	OPC DA 1.0 IAdviseSink e do OPC DA 2.0 IOPCDataCallback.
-	Algumas funcoes para inicializacao e cancelamento das funcoes tambem
-	foram implementadas.
+	As classes em C++ implementam as interfaces para o cliente do
+	OPC DA 1.0 IAdviseSink (removida nesta aplica√ß√£o) e do OPC DA 2.0 
+	IOPCDataCallback. Algumas funcoes para inicializacao e cancelamento das 
+	funcoes tambem foram implementadas e alteradas pela dupla.
 */
 
 #undef UNICODE
@@ -77,6 +77,8 @@
 
 #define TAMMSGSTATUS            42
 #define TAMMSGACK               10
+#define TAMMSGSETUP				33
+#define TAMMSGSOL				10
 
 //#define REMOTE_SERVER_NAME L"your_path"
 
@@ -88,11 +90,13 @@
 #include <ObjIdl.h>
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <conio.h>												/*_getch()*/
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <math.h>                                               /*pow()*/
+#include <mutex>
 
 #include "opcda.h"
 #include "opcerror.h"
@@ -113,29 +117,62 @@ using namespace std;
 /* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
-DWORD WINAPI EscritaSincrona(LPVOID index);
+void decode();
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
 
 // The OPC DA Spec requires that some constants be registered in order to use
 // them. The one below refers to the OPC DA 1.0 IDataObject interface.
-UINT OPC_DATA_TIME = RegisterClipboardFormat (_T("OPCSTMFORMATDATATIME"));
+UINT OPC_DATA_TIME = RegisterClipboardFormat(_T("OPCSTMFORMATDATATIME"));
 
-wchar_t ITEM_ID[]=L"Saw-toothed Waves.Real4";
+wchar_t ITEM_ID1[] = L"Random.Int1";
+wchar_t ITEM_ID2[] = L"Random.Int2";
+wchar_t ITEM_ID3[] = L"Random.Int4";
+wchar_t ITEM_ID4[] = L"Random.Real4";
+wchar_t ITEM_ID5[] = L"Saw-toothed Waves.Int2";
+wchar_t ITEM_ID6[] = L"Saw-toothed Waves.Real4";
+
+wchar_t ITEM_CLIENT_ID1[] = L"Bucket Brigade.Int1";
+wchar_t ITEM_CLIENT_ID2[] = L"Bucket Brigade.Int4";
+wchar_t ITEM_CLIENT_ID3[] = L"Bucket Brigade.Real4";
+wchar_t ITEM_CLIENT_ID4[] = L"Bucket Brigade.Real8";
 
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
-VARIANT*	sDadoLeitura;
-OPCHANDLE*	sHandleLeitura;
+VARIANT *sdadoLeitura;
+OPCHANDLE *shandleLeitura;
 
-char	aux[8];
+SYSTEMTIME SystemTime;
 
-float	item[6];
+char* messageOPCToTCP = new char;
+
+IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
+IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
+
+OPCHANDLE hClientItem1;
+OPCHANDLE hClientItem2;
+OPCHANDLE hClientItem3;
+OPCHANDLE hClientItem4;
+
+char	msgstatus[TAMMSGSTATUS + 1] = "99/#######/#####.#/#####.#/###/###/###/###",
+		msgack[TAMMSGACK + 1] = "22/#######",
+		msgsetup[TAMMSGSETUP + 1] = "77/#######/##/####.#/####.#/#####",
+		msgsol[TAMMSGSOL + 1] = "00/#######";
+
+/* ======================================================================================================================== */
+/*  HANDLE MUTEX*/
+
+HANDLE hMutexStatus;
+HANDLE hMutexSetup;
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
-/* LE OS VALORES DOS ITEMS EM UM SERVIDO OPC*/
+/* INICIALIZACAO E CONFIGURACAO DO SERVIDOR OPC*/
+/* INICIALIZACAO DA THREAD SECUNDARIA*/
+/* INICIALIZACAO DE MUTEX*/
+/* LEITURA E ESCRITA DE MULTIPLOS ITENS NO SERVIDOR OPC*/
+/* PASSAGEM DE PARAMETROS PARA O SERVIDOR DE SOCKETS*/
 
 void main(void) {
 	/*------------------------------------------------------------------------------*/
@@ -149,23 +186,33 @@ void main(void) {
 	DWORD dwServidorSocketsId, dwEscritaSincronaId;
 	DWORD dwExitCode = 0;
 
-	int i = 1;
+	DWORD ret;
+
+	int i = 1, nTipoEvento;
 
 	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
 
-	i = 2;
-	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
-	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
+	/*------------------------------------------------------------------------------*/
+	/*Criando objetos do tipo mutex*/
+	hMutexStatus = CreateMutex(NULL, FALSE, "MutexStatus");
+	GetLastError();
+
+	hMutexSetup = CreateMutex(NULL, FALSE, "MutexSetup");
+	GetLastError();
 
 	/*------------------------------------------------------------------------------*/
-	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
-	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
 
-	OPCHANDLE hServerGroup; // server handle to the group
-	OPCHANDLE hServerItem;  // server handle to the item
+	OPCHANDLE hServerGroup;		// server handle to the group
 
+	OPCHANDLE hServerItem1;		// server handle to the item
+	OPCHANDLE hServerItem2;		// server handle to the item
+	OPCHANDLE hServerItem3;		// server handle to the item
+	OPCHANDLE hServerItem4;		// server handle to the item
+	OPCHANDLE hServerItem5;		// server handle to the item
+	OPCHANDLE hServerItem6;		// server handle to the item
+	
 	char buf[100];
 
 	// Have to be done before using microsoft COM library:
@@ -183,11 +230,30 @@ void main(void) {
 
 	// Add the OPC item. First we have to convert from wchar_t* to char*
 	// in order to print the item name in the console.
-    size_t m;
-	wcstombs_s(&m, buf, 100, ITEM_ID, _TRUNCATE);
+
+	size_t m;
+	wcstombs_s(&m, buf, 100, ITEM_ID1, _TRUNCATE);
 	printf("Adding the item %s to the group...\n", buf);
-    AddTheItem(pIOPCItemMgt, hServerItem);
-	
+	wcstombs_s(&m, buf, 100, ITEM_ID2, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID3, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID4, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID5, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_ID6, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID1, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID2, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID3, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID4, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	AddTheItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6, hClientItem1, hClientItem2, hClientItem3, hClientItem4);
+
 	int bRet;
 	MSG msg;
     
@@ -204,36 +270,94 @@ void main(void) {
 	SetDataCallback(pIOPCItemMgt, pSOCDataCallback, pIConnectionPoint, &dwCookie);
 
 	// Change the group to the ACTIVE state so that we can receive the
-	// server¥s callback notification
+	// server¬¥s callback notification
 	printf("Changing the group state to ACTIVE...\n");
-    SetGroupActive(pIOPCItemMgt); 
+    SetGroupActive(pIOPCItemMgt);
 
-	// Enter again a message pump in order to process the server¥s callback
+	// Enter again a message pump in order to process the server¬¥s callback
 	// notifications, for the same reason explained before.
 	
-	printf("Waiting for IOPCDataCallback notifications during 10 seconds...\n");
+	printf("Waiting for IOPCDataCallback notifications...\n\n");
+	char buffer[100];
+	VARIANT var;
+	::VariantInit(&var);
+	var.vt = VT_I4;
+	var.iVal = 0;
+	VarToStr(var, buffer);
+
 	while (true) {
-		bRet = GetMessage( &msg, NULL, 0, 0 );
-		if (!bRet){
-			printf ("Failed to get windows message! Error code = %d\n", GetLastError());
+		bRet = GetMessage(&msg, NULL, 0, 0);
+		if (!bRet) {
+			printf("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
 
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
+		
+		sdadoLeitura = pSOCDataCallback->sendValues();
+		shandleLeitura = pSOCDataCallback->sendHandles();
 
-		sDadoLeitura	= pSOCDataCallback->sendValues();
-		sHandleLeitura	= pSOCDataCallback->sendHandles();
+		for (int a = 0; a < 6; a++) {
+			VarToStr(sdadoLeitura[a], buf);
+		}
+		
+		if (FALSE)
+		{
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
+			WriteItem(pIOPCItemMgt, hClientItem1, var);
 
-		for (int j = 0; j < 6; j++) {
-			VarToStr(sDadoLeitura[j], aux);
-			item[j] = strtof(aux, NULL);
+			var.iVal++;
+			VarToStr(var, buffer);
+
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem2);
+			WriteItem(pIOPCItemMgt, hClientItem2, var);
+
+			var.iVal++;
+			VarToStr(var, buffer);
+
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem3);
+			WriteItem(pIOPCItemMgt, hClientItem3, var);
+
+			var.iVal++;
+			VarToStr(var, buffer);
+
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
+			WriteItem(pIOPCItemMgt, hClientItem4, var);
+		}
+		else
+		{
+
 		}
 
-		for (int j = 0; j < 6; j++) {
-			printf("Campo %d - Valor %f\n", j, item[j]);
-		}
+		var.iVal++;
+		VarToStr(var, buffer);
 
+		/*********************************************************************************/
+		// Tratamento dos dados
+		
+		decode();
+
+		/*Exibe a hora corrente*/
+		GetSystemTime(&SystemTime);
+		printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+			SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+			SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+		printf("Dados do status da planta lidos do Servidor OPC\n##/#######/%s\n\n", messageOPCToTCP);
+
+		ret = WaitForSingleObject(hMutexStatus, 1);
+		GetLastError();
+
+		nTipoEvento = ret - WAIT_OBJECT_0;
+
+		if (nTipoEvento == 0) {
+			for (int j = 11; j <= TAMMSGSTATUS; j++) {
+				msgstatus[j] = messageOPCToTCP[j - 11];
+			}
+		}
+		
+		ret = ReleaseMutex(hMutexStatus);
+		GetLastError();
 	}
 
 	// Cancel the callback and release its reference
@@ -244,7 +368,7 @@ void main(void) {
 
 	// Remove the OPC item:
 	printf("Removing the OPC item...\n");
-	RemoveItem(pIOPCItemMgt, hServerItem);
+	RemoveItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6, hClientItem1, hClientItem2, hClientItem3, hClientItem4);
 
 	// Remove the OPC group:
 	printf("Removing the OPC group object...\n");
@@ -262,7 +386,9 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
-	CloseHandle(hEscritaSincrona);
+	CloseHandle(hMutexStatus);
+	CloseHandle(hMutexSetup);
+
 }
 
 
@@ -270,6 +396,7 @@ void main(void) {
 // Instantiate the IOPCServer interface of the OPCServer
 // having the name ServerName. Return a pointer to this interface
 //
+
 IOPCServer* InstantiateServer(wchar_t ServerName[])
 {
 	CLSID CLSID_OPCServer;
@@ -312,6 +439,7 @@ IOPCServer* InstantiateServer(wchar_t ServerName[])
 // Returns a pointer to the IOPCItemMgt interface of the added group
 // and a server opc handle to the added group.
 //
+
 void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt, 
 				 OPCHANDLE& hServerGroup)
 {
@@ -338,38 +466,148 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 // Add the Item ITEM_ID to the group whose IOPCItemMgt interface
 // is pointed by pIOPCItemMgt pointer. Return a server opc handle
 // to the item.
- 
-void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem)
+
+void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6, OPCHANDLE& hClientItem1, OPCHANDLE& hClientItem2, OPCHANDLE& hClientItem3, OPCHANDLE& hClientItem4)
 {
 	HRESULT hr;
 
 	// Array of items to add:
-	OPCITEMDEF ItemArray[1] =
+
+	OPCITEMDEF ItemArray[10] =
 	{{
-	/*szAccessPath*/ L"",
-	/*szItemID*/ ITEM_ID,
-	/*bActive*/ TRUE,
-	/*hClient*/ 1,
-	/*dwBlobSize*/ 0,
-	/*pBlob*/ NULL,
-	/*vtRequestedDataType*/ VT,
-	/*wReserved*/0
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID1,
+		/*bActive*/ TRUE,
+		/*hClient*/ 0,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+	
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID2,
+		/*bActive*/ TRUE,
+		/*hClient*/ 1,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID3,
+		/*bActive*/ TRUE,
+		/*hClient*/ 2,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID4,
+		/*bActive*/ TRUE,
+		/*hClient*/ 3,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID5,
+		/*bActive*/ TRUE,
+		/*hClient*/ 4,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID6,
+		/*bActive*/ TRUE,
+		/*hClient*/ 5,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID1,
+		/*bActive*/ TRUE,
+		/*hClient*/ 6,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID2,
+		/*bActive*/ TRUE,
+		/*hClient*/ 7,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID3,
+		/*bActive*/ TRUE,
+		/*hClient*/ 8,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
+	},
+
+	{
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_CLIENT_ID4,
+		/*bActive*/ TRUE,
+		/*hClient*/ 9,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
 	}};
 
 	//Add Result:
-	OPCITEMRESULT* pAddResult=NULL;
+	OPCITEMRESULT* pAddResult = NULL;
 	HRESULT* pErrors = NULL;
 
 	// Add an Item to the previous Group:
-	hr = pIOPCItemMgt->AddItems(1, ItemArray, &pAddResult, &pErrors);
-	if (hr != S_OK){
+	hr = pIOPCItemMgt->AddItems(10, ItemArray, &pAddResult, &pErrors);
+	if (hr != S_OK) {
 		printf("Failed call to AddItems function. Error code = %x\n", hr);
 		exit(0);
 	}
 
 	// Server handle for the added item:
-	hServerItem = pAddResult[0].hServer;
-
+	hServerItem1 = pAddResult[0].hServer;
+	hServerItem2 = pAddResult[1].hServer;
+	hServerItem3 = pAddResult[2].hServer;
+	hServerItem4 = pAddResult[3].hServer;
+	hServerItem5 = pAddResult[4].hServer;
+	hServerItem6 = pAddResult[5].hServer;
+	
+	hClientItem1 = pAddResult[6].hServer;
+	hClientItem2 = pAddResult[7].hServer;
+	hClientItem3 = pAddResult[8].hServer;
+	hClientItem4 = pAddResult[9].hServer;
+	
 	// release memory allocated by the server:
 	CoTaskMemFree(pAddResult->pBlob);
 
@@ -381,19 +619,60 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem)
 }
 
 
+///////////////////////////////////////////////////////////////////////////////
+// Read from device the value of the item having the "hServerItem" server 
+// handle and belonging to the group whose one interface is pointed by
+// pGroupIUnknown. The value is put in varValue. 
+//
+
+void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
+{
+	//get a pointer to the IOPCSyncIOInterface:
+	IOPCSyncIO* pIOPCSyncIO;
+	pGroupIUnknown->QueryInterface(__uuidof(pIOPCSyncIO), (void**) &pIOPCSyncIO);
+
+	// read the item value from the device:
+
+	HRESULT* pErrors = NULL;
+
+	HRESULT hr = pIOPCSyncIO->Write(1, &hServerItem, &varValue, &pErrors);
+	if (hr != S_OK) {
+		printf("Failed to send message %x.\n", hr);
+		exit(0);
+	}
+
+	//Release memeory allocated by the OPC server:
+	CoTaskMemFree(pErrors);
+	pErrors = NULL;
+
+	// release the reference to the IOPCSyncIO interface:
+	pIOPCSyncIO->Release();
+}
+
+
 ///////////////////////////////////////////////////////////////////////////
 // Remove the item whose server handle is hServerItem from the group
 // whose IOPCItemMgt interface is pointed by pIOPCItemMgt
 //
-void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem)
+
+void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6, OPCHANDLE hClientItem1, OPCHANDLE hClientItem2, OPCHANDLE hClientItem3, OPCHANDLE hClientItem4)
 {
 	// server handle of items to remove:
-	OPCHANDLE hServerArray[1];
+	OPCHANDLE hServerArray[10];
 	hServerArray[0] = hServerItem;
+	hServerArray[1] = hServerItem2;
+	hServerArray[2] = hServerItem3;
+	hServerArray[3] = hServerItem4;
+	hServerArray[4] = hServerItem5;
+	hServerArray[5] = hServerItem6;
+	hServerArray[6] = hClientItem1;
+	hServerArray[7] = hClientItem2;
+	hServerArray[8] = hClientItem3;
+	hServerArray[9] = hClientItem4;
 	
 	//Remove the item:
 	HRESULT* pErrors; // to store error code(s)
-	HRESULT hr = pIOPCItemMgt->RemoveItems(1, hServerArray, &pErrors);
+	HRESULT hr = pIOPCItemMgt->RemoveItems(10, hServerArray, &pErrors);
 	_ASSERT(!hr);
 
 	//release memory allocated by the server:
@@ -406,6 +685,7 @@ void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem)
 // Remove the Group whose server handle is hServerGroup from the server
 // whose IOPCServer interface is pointed by pIOPCServer
 //
+
 void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 {
 	// Remove the group:
@@ -432,18 +712,16 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	SOCKET              ClientSocket = INVALID_SOCKET;
 
 	struct addrinfo* result = NULL;
-	struct addrinfo     hints;
+	struct addrinfo hints;
 
-	SYSTEMTIME          SystemTime;
+	DWORD ret;
 
-	int		iResult,
-			iSendResult,
-			k = 0,
-			recvbuflen = DEFAULT_BUFLEN;
+	int iResult,
+		  iSendResult,
+		  k = 0,
+		  recvbuflen = DEFAULT_BUFLEN;
 
-	char	recvbuf[DEFAULT_BUFLEN],
-			msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
-			msgack[TAMMSGACK + 1] = "22/#######";
+	char recvbuf[DEFAULT_BUFLEN];
 
 	/*------------------------------------------------------------------------------*/
 	/*Configuracoes do servidor*/
@@ -500,98 +778,142 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 		exit(0);
 	}
 
-	/*Aguarda a conexao de um cliente de sockets entao aceita*/
-	ClientSocket = accept(ListenSocket, NULL, NULL);
-	if (ClientSocket == INVALID_SOCKET) {
-		printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
-		WSACleanup();
-		exit(0);
-	}
+	while (true) {
 
-	/*Recebe e envia mensagens ate que a conexao seja encerrada*/
-	do {
-		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-
-			/*Exibe a hora corrente*/
-			GetSystemTime(&SystemTime);
-			printf("SISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\n",
-				SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
-				SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
-
-			/*Caso tenha solicitado status da planta*/
-			if (iResult == 10) {
-
-				/*Imprime mensagem recebida em verde*/
-				printf("\x1b[32m");
-				printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
-				printf("\x1b[0m");
-
-				nseq = (nseq + 2) % 9999999;
-
-				for (int j = 3; j < 10; j++) {
-					k = nseq / pow(10, (9 - j));
-					k = k % 10;
-					msgstatus[j] = k + '0';
-				}
-
-				/*Envia mensagem com dados do status da planta*/
-				iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
-				if (iSendResult == SOCKET_ERROR) {
-					printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
-					closesocket(ClientSocket);
-					WSACleanup();
-					exit(0);
-				}
-
-				/*Imprime mensagem enviada em amarelo*/
-				printf("\x1b[33m");
-				printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
-				printf("\x1b[0m");
-			}
-
-			/*Caso tenha solicitado confirmcao*/
-			if (iResult == 33) {
-
-				/*Imprime mensagem recebida em cyan*/
-				printf("\x1b[36m");
-				printf("Mensagem de setup de quipamentos recebida do MES\n%.33s\n\n", recvbuf);
-				printf("\x1b[0m");
-
-				nseq = (nseq + 2) % 9999999;
-
-				for (int j = 3; j < 10; j++) {
-					k = nseq / pow(10, (9 - j));
-					k = k % 10;
-					msgack[j] = k + '0';
-				}
-
-				/*Envia mensagem de confirmacao (ACK)*/
-				iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
-				if (iSendResult == SOCKET_ERROR) {
-					printf("Falha ao enviar a mensagem de confirmacao (ACK)! Erro = %d\n", WSAGetLastError());
-					closesocket(ClientSocket);
-					WSACleanup();
-					exit(0);
-				}
-
-				/*Imprime mensagem enviada em magenta*/
-				printf("\x1b[35m");
-				printf("Mensagem de ACK enviada ao MES\n%s\n\n", msgack);
-				printf("\x1b[0m");
-			}
-		}
-		else if (iResult == 0) {
-			printf("Nenhum dado recebi, encerrando servidor de sockets!");
-		}
-		else if (iResult == SOCKET_ERROR) {
-			printf("Falha ao receber dados do cliente sockets - recv()! Erro = %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
+		/*Aguarda a conexao de um cliente de sockets entao aceita*/
+		ClientSocket = accept(ListenSocket, NULL, NULL);
+		if (ClientSocket == INVALID_SOCKET) {
+			printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
+			closesocket(ListenSocket);
 			WSACleanup();
 			exit(0);
 		}
-	} while (iResult > 0);
+
+		/*Recebe e envia mensagens ate que a conexao seja encerrada*/
+		do {
+			iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+			if (iResult > 0) {
+
+				/*Numero sequencial da mensagem*/
+				nseq = (((recvbuf[3] - '0') * pow(10, 6)) +
+						((recvbuf[4] - '0') * pow(10, 5)) +
+						((recvbuf[5] - '0') * pow(10, 4)) +
+						((recvbuf[6] - '0') * pow(10, 3)) +
+						((recvbuf[7] - '0') * pow(10, 2)) +
+						((recvbuf[8] - '0') * pow(10, 1)) +
+						(recvbuf[9] - '0') +
+						1);
+
+				nseq = nseq % 9999999;
+
+				/*Caso tenha solicitado status da planta*/
+				if (iResult == 10) {
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+					/*Imprime mensagem recebida em verde*/
+					printf("\x1b[32m");
+					printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
+					printf("\x1b[0m");
+
+					ret = WaitForSingleObject(hMutexStatus, INFINITE);
+					GetLastError();
+
+					for (int j = 3; j < 10; j++) {
+						k = nseq / pow(10, (9 - j));
+						k = k % 10;
+						msgstatus[j] = k + '0';
+					}
+
+					/*Envia mensagem com dados do status da planta*/
+					iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
+					if (iSendResult == SOCKET_ERROR) {
+						printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
+						closesocket(ClientSocket);
+						WSACleanup();
+						exit(0);
+					}
+
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+					/*Imprime mensagem enviada em amarelo*/
+					printf("\x1b[33m");
+					printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
+					printf("\x1b[0m");
+
+					ret = ReleaseMutex(hMutexStatus);
+					GetLastError();
+				}
+
+				/*Caso tenha solicitado escrita no servidor OPC*/
+				if (iResult == 33) {
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+					ret = WaitForSingleObject(hMutexSetup, INFINITE);
+					GetLastError();
+
+					/*Escrita da mensagem em uma variavel global*/
+					for (int j = 0; j <= TAMMSGSETUP; j++) {
+						msgsetup[j] = recvbuf[j];
+					}
+
+					ret = ReleaseMutex(hMutexStatus);
+					GetLastError();
+
+					/*Imprime mensagem recebida em cyan*/
+					printf("\x1b[36m");
+					printf("Mensagem de setup de equipamentos recebida do MES\n%.33s\n\n", recvbuf);
+					printf("\x1b[0m");
+
+					for (int j = 3; j < 10; j++) {
+						k = nseq / pow(10, (9 - j));
+						k = k % 10;
+						msgack[j] = k + '0';
+					}
+
+					/*Envia mensagem de confirmacao (ACK)*/
+					iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
+					if (iSendResult == SOCKET_ERROR) {
+						printf("Falha ao enviar a mensagem de confirmacao (ACK)! Erro = %d\n", WSAGetLastError());
+						closesocket(ClientSocket);
+						WSACleanup();
+						exit(0);
+					}
+
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+					/*Imprime mensagem enviada em magenta*/
+					printf("\x1b[35m");
+					printf("Mensagem de confirmacao (ACK) enviada ao MES\n%s\n\n", msgack);
+					printf("\x1b[0m");
+				}
+			}
+			else if (iResult == 0) {
+				printf("Nenhum dado recebi, encerrando servidor de sockets!");
+			}
+			else if (iResult == SOCKET_ERROR) {
+				printf("Falha ao receber dados do cliente sockets - recv()! Erro = %d\n", WSAGetLastError());
+				closesocket(ClientSocket);
+				WSACleanup();
+				exit(0);
+			}
+		} while (iResult > 0);
+	}
 
 	/*Fechando o socket*/
 	closesocket(ListenSocket);
@@ -618,19 +940,68 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 }
 
 
-/* ======================================================================================================================== */
-/* THREAD SECUNDARIA*/
-/* */
+////////////////////////////////////////////////////////////////////////
+//
+//
+void decode() {
+	char buffer[100];
+	char* aux = new char;
 
-DWORD WINAPI EscritaSincrona(LPVOID index) {
+	float var1;
+	float var2;
+	float var3;
+	float var4;
+	float var5;
+	float var6;
+	char* varN1 = new char;
+	char* varN2 = new char;
+	char* varN3 = new char;
+	char* varN4 = new char;
+	char* varN5 = new char;
+	char* varN6 = new char;
 
-	while (true){
-		printf("2\n");
-		Sleep(3000);
-	}
+	char msg1[4];
+	char msg2[4];
+	char msg3[4];
+	char msg4[8];
+	char msg5[4];
+	char msg6[8];
 
-	/*------------------------------------------------------------------------------*/
-	/*Finalizando a thread de escrita sincrona*/
-	printf("Finalizando thread servidor de sockets\n");
-	ExitThread((DWORD)index);
+	VarToStr(sdadoLeitura[0], buffer);
+	var1 = atof(buffer);
+
+	VarToStr(sdadoLeitura[1], buffer);
+	var2 = atof(buffer);
+
+	VarToStr(sdadoLeitura[2], buffer);
+	var3 = atof(buffer);
+
+	VarToStr(sdadoLeitura[3], buffer);
+	var4 = atof(buffer);
+
+	VarToStr(sdadoLeitura[4], buffer);
+	var5 = atof(buffer);
+
+	VarToStr(sdadoLeitura[5], buffer);
+	var6 = atof(buffer);
+
+	sprintf(varN1, "%03.0f", var1);
+	sprintf(msg1, "%c%c%c", varN1[0], varN1[1], varN1[2]);
+
+	sprintf(varN2, "%.0f", var2);
+	sprintf(msg2, "%c%c%c", varN2[0], varN2[1], varN2[2]);
+
+	sprintf(varN3, "%.0f", var3);
+	sprintf(msg3, "%c%c%c", varN3[0], varN3[1], varN3[2]);
+
+	sprintf(varN4, "%07.1f", var4);
+	sprintf(msg4, "%c%c%c%c%c%c%c", varN4[0], varN4[1], varN4[2], varN4[3], varN4[4], varN4[5], varN4[6]);
+
+	sprintf(varN5, "%03.0f", abs(var5));
+	sprintf(msg5, "%c%c%c", varN5[0], varN5[1], varN5[2]);
+
+	sprintf(varN6, "%07.1f", var6);
+	sprintf(msg6, "%c%c%c%c%c%c%c", varN6[0], varN6[1], varN6[2], varN6[3], varN6[4], varN6[5], varN6[6]);
+
+	sprintf(messageOPCToTCP, "%s/%s/%s/%s/%s/%s", msg4, msg6, msg1, msg2, msg3, msg5);
 }
