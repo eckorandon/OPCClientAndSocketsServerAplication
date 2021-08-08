@@ -126,6 +126,8 @@ int nseq = 0;                                                   /*Valor referent
 VARIANT *sdadoLeitura;
 OPCHANDLE *shandleLeitura;
 
+char* messageOPCToTCP;
+
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
 
@@ -200,6 +202,14 @@ void main(void) {
 	printf("Adding the item %s to the group...\n", buf);
 	wcstombs_s(&m, buf, 100, ITEM_ID6, _TRUNCATE);
 	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID1, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID2, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID3, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
+	wcstombs_s(&m, buf, 100, ITEM_CLIENT_ID4, _TRUNCATE);
+	printf("Adding the item %s to the group...\n", buf);
 	AddTheItem(pIOPCItemMgt, hServerItem1, hServerItem2, hServerItem3, hServerItem4, hServerItem5, hServerItem6, hClientItem1, hClientItem2, hClientItem3, hClientItem4);
 
 	int bRet;
@@ -234,6 +244,15 @@ void main(void) {
 	var.iVal = 0;
 	VarToStr(var, buffer);
 	
+	char* message;
+	char* aux;
+
+	char* var1;
+	char* var2;
+	char* var3;
+	char* var4;
+	char* var5;
+	char* var6;
 
 	ticks1 = GetTickCount();
 	do {
@@ -274,6 +293,59 @@ void main(void) {
 
 		var.iVal++;
 		VarToStr(var, buffer);
+
+		/*********************************************************************************/
+		// Tratamento dos dados
+
+		VarToStr(sdadoLeitura[0], buffer);
+		strcpy(var1, buffer);
+
+		VarToStr(sdadoLeitura[1], buffer);
+		strcpy(var2, buffer);
+
+		VarToStr(sdadoLeitura[2], buffer);
+		strcpy(var3, buffer);
+
+		VarToStr(sdadoLeitura[3], buffer);
+		strcpy(var4, buffer);
+
+		VarToStr(sdadoLeitura[4], buffer);
+		strcpy(var5, buffer);
+
+		VarToStr(sdadoLeitura[5], buffer);
+		strcpy(var6, buffer);
+
+		char* aux;
+
+		strncpy(aux, var1, 3);
+		strcat(messageOPCToTCP, aux);
+
+		strcat(messageOPCToTCP, "/");
+
+		strncpy(aux, var2, 3);
+		strcat(messageOPCToTCP, aux);
+
+		strcat(messageOPCToTCP, "/");
+
+		strncpy(aux, var3, 3);
+		strcat(messageOPCToTCP, aux);
+
+		strcat(messageOPCToTCP, "/");
+
+		strncpy(aux, var4, 3);
+		strcat(messageOPCToTCP, aux);
+
+		strcat(messageOPCToTCP, "/");
+
+		strncpy(aux, var5, 3);
+		strcat(messageOPCToTCP, aux);
+
+		strcat(messageOPCToTCP, "/");
+
+		strncpy(aux, var6, 3);
+		strcat(messageOPCToTCP, aux);
+
+		/************************************************************/
 
         ticks2 = GetTickCount();
 	}
@@ -386,17 +458,19 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 	HRESULT hr;
 
 	// Array of items to add:
+
 	OPCITEMDEF ItemArray[10] =
 	{{
-		/*szAccessPath*/ L"",
-		/*szItemID*/ ITEM_ID1,
-		/*bActive*/ TRUE,
-		/*hClient*/ 0,
-		/*dwBlobSize*/ 0,
-		/*pBlob*/ NULL,
-		/*vtRequestedDataType*/ VT,
-		/*wReserved*/0
+	/*szAccessPath*/ L"",
+	/*szItemID*/ ITEM_ID1,
+	/*bActive*/ TRUE,
+	/*hClient*/ 0,
+	/*dwBlobSize*/ 0,
+	/*pBlob*/ NULL,
+	/*vtRequestedDataType*/ VT,
+	/*wReserved*/0
 	},
+	
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID2,
@@ -407,6 +481,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
 		},
+
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID3,
@@ -416,7 +491,8 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		} ,
+		},
+
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID4,
@@ -426,7 +502,8 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		} ,
+		},
+
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID5,
@@ -436,7 +513,8 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		} ,
+		},
+
 	{
 		/*szAccessPath*/ L"",
 		/*szItemID*/ ITEM_ID6,
@@ -447,7 +525,6 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
 		},
-
 
 	{
 		/*szAccessPath*/ L"",
@@ -491,7 +568,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		}
+		},
 	};
 
 	//Add Result:
@@ -501,6 +578,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 	// Add an Item to the previous Group:
 	hr = pIOPCItemMgt->AddItems(10, ItemArray, &pAddResult, &pErrors);
 	if (hr != S_OK){
+
 		printf("Failed call to AddItems function. Error code = %x\n", hr);
 		exit(0);
 	}
@@ -742,7 +820,7 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
 				/*Imprime mensagem recebida em cyan*/
 				printf("\x1b[36m");
-				printf("Mensagem de setup de quipamentos recebida do MES\n%.33s\n\n", recvbuf);
+				printf("Mensagem de setup de equipamentos recebida do MES\n%.33s\n\n", recvbuf);
 				printf("\x1b[0m");
 
 				nseq = (nseq + 2) % 9999999;
