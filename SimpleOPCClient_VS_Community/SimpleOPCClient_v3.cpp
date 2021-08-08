@@ -138,11 +138,12 @@ wchar_t ITEM_CLIENT_ID2[] = L"Bucket Brigade.Int4";
 wchar_t ITEM_CLIENT_ID3[] = L"Bucket Brigade.Real4";
 wchar_t ITEM_CLIENT_ID4[] = L"Bucket Brigade.Real8";
 
-/*ATENCAO PARA ISSO*/
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
 VARIANT *sdadoLeitura;
 OPCHANDLE *shandleLeitura;
+
+SYSTEMTIME SystemTime;
 
 char* messageOPCToTCP = new char;
 
@@ -158,6 +159,11 @@ char	msgstatus[TAMMSGSTATUS + 1] = "99/#######/#####.#/#####.#/###/###/###/###",
 		msgack[TAMMSGACK + 1] = "22/#######",
 		msgsetup[TAMMSGSETUP + 1] = "77/#######/##/####.#/####.#/#####",
 		msgsol[TAMMSGSOL + 1] = "00/#######";
+
+/* ======================================================================================================================== */
+/*  HANDLE MUTEX*/
+
+HANDLE hMutexStatus;
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
@@ -178,11 +184,18 @@ void main(void) {
 	DWORD dwServidorSocketsId;
 	DWORD dwExitCode = 0;
 
-	int i = 1;
+	DWORD ret;
+
+	int i = 1, nTipoEvento;
 
 	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
+
+	/*------------------------------------------------------------------------------*/
+	/*Criando objetos do tipo mutex*/
+	hMutexStatus = CreateMutex(NULL, FALSE, "MutexStatus");
+	GetLastError();
 
 	/*------------------------------------------------------------------------------*/
 
@@ -259,7 +272,7 @@ void main(void) {
 	// Enter again a message pump in order to process the server´s callback
 	// notifications, for the same reason explained before.
 	
-	printf("Waiting for IOPCDataCallback notifications...\n");
+	printf("Waiting for IOPCDataCallback notifications...\n\n");
 	char buffer[100];
 	VARIANT var;
 	::VariantInit(&var);
@@ -269,21 +282,19 @@ void main(void) {
 
 	while (true) {
 		bRet = GetMessage(&msg, NULL, 0, 0);
-
 		if (!bRet) {
 			printf("Failed to get windows message! Error code = %d\n", GetLastError());
 			exit(0);
 		}
+
 		TranslateMessage(&msg); // This call is not really needed ...
 		DispatchMessage(&msg);  // ... but this one is!
 		
 		sdadoLeitura = pSOCDataCallback->sendValues();
 		shandleLeitura = pSOCDataCallback->sendHandles();
 
-		for (int a = 0; a < 6; a++)
-		{
+		for (int a = 0; a < 6; a++) {
 			VarToStr(sdadoLeitura[a], buf);
-			printf("OPCHANDLE: %d | Valor: %s\n", (int)shandleLeitura[a], buf);
 		}
 		
 		if (FALSE)
@@ -321,7 +332,27 @@ void main(void) {
 		// Tratamento dos dados
 		
 		decode();
-		printf("\n\n%s\n\n", messageOPCToTCP);
+
+		/*Exibe a hora corrente*/
+		GetSystemTime(&SystemTime);
+		printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+			SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+			SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+		printf("Dados do status da planta lidos do Servidor OPC\n##/#######/%s\n\n", messageOPCToTCP);
+
+		ret = WaitForSingleObject(hMutexStatus, 1);
+		GetLastError();
+
+		nTipoEvento = ret - WAIT_OBJECT_0;
+
+		if (nTipoEvento == 0) {
+			for (int j = 11; j <= TAMMSGSTATUS; j++) {
+				msgstatus[j] = messageOPCToTCP[j - 11];
+			}
+		}
+		
+		ret = ReleaseMutex(hMutexStatus);
+		GetLastError();
 	}
 
 	// Cancel the callback and release its reference
@@ -350,6 +381,7 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
+	CloseHandle(hMutexStatus);
 }
 
 
@@ -669,7 +701,7 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	struct addrinfo* result = NULL;
 	struct addrinfo hints;
 
-	SYSTEMTIME SystemTime;
+	DWORD ret;
 
 	int iResult,
 		iSendResult,
@@ -749,12 +781,6 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 			iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
 			if (iResult > 0) {
 
-				/*Exibe a hora corrente*/
-				GetSystemTime(&SystemTime);
-				printf("SISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\n",
-					SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
-					SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
-
 				/*Numero sequencial da mensagem*/
 				nseq = (((recvbuf[3] - '0') * pow(10, 6)) +
 						((recvbuf[4] - '0') * pow(10, 5)) +
@@ -769,21 +795,25 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 
 				/*Caso tenha solicitado status da planta*/
 				if (iResult == 10) {
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
 
 					/*Imprime mensagem recebida em verde*/
 					printf("\x1b[32m");
 					printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
 					printf("\x1b[0m");
 
+					ret = WaitForSingleObject(hMutexStatus, INFINITE);
+					GetLastError();
+
 					for (int j = 3; j < 10; j++) {
 						k = nseq / pow(10, (9 - j));
 						k = k % 10;
 						msgstatus[j] = k + '0';
 					}
-
-
-
-					printf("- Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
 
 					/*Envia mensagem com dados do status da planta*/
 					iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
@@ -794,14 +824,28 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 						exit(0);
 					}
 
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
 					/*Imprime mensagem enviada em amarelo*/
 					printf("\x1b[33m");
 					printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
 					printf("\x1b[0m");
+
+					ret = ReleaseMutex(hMutexStatus);
+					GetLastError();
 				}
 
 				/*Caso tenha solicitado confirmcao*/
 				if (iResult == 33) {
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
 
 					/*Imprime mensagem recebida em cyan*/
 					printf("\x1b[36m");
@@ -823,9 +867,15 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 						exit(0);
 					}
 
+					/*Exibe a hora corrente*/
+					GetSystemTime(&SystemTime);
+					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
 					/*Imprime mensagem enviada em magenta*/
 					printf("\x1b[35m");
-					printf("Mensagem de ACK enviada ao MES\n%s\n\n", msgack);
+					printf("Mensagem de confirmacao (ACK) enviada ao MES\n%s\n\n", msgack);
 					printf("\x1b[0m");
 				}
 			}
