@@ -193,7 +193,9 @@ void main(void) {
 
 	DWORD ret;
 
-	int i = 1, nTipoEvento;
+	int i = 1, nTipoEvento, Valor1, Valor4;
+
+	float Valor2, Valor3; 
 
 	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
@@ -288,12 +290,11 @@ void main(void) {
 	// notifications, for the same reason explained before.
 	
 	printf("Waiting for IOPCDataCallback notifications...\n\n");
+	
 	char buffer[100];
-	VARIANT var;
-	::VariantInit(&var);
-	var.vt = VT_I4;
-	var.iVal = 0;
-	VarToStr(var, buffer);
+
+	VARIANT aux;
+	::VariantInit(&aux);
 
 	while (true) {
 		bRet = GetMessage(&msg, NULL, 0, 0);
@@ -319,36 +320,58 @@ void main(void) {
 
 		if (nTipoEvento == 0) {
 
-			//msgsetup tem os dados
+			Valor1 =	(msgsetup[11] - '0') * pow(10, 1) + 
+						(msgsetup[12] - '0');
 
-			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
-			WriteItem(pIOPCItemMgt, hClientItem1, var);
+			Valor2 =	(msgsetup[14] - '0') * pow(10, 3) +
+						(msgsetup[15] - '0') * pow(10, 2) +
+						(msgsetup[16] - '0') * pow(10, 1) +
+						(msgsetup[17] - '0') +
+						(msgsetup[19] - '0') * pow(10, -1);
 
-			var.iVal++;
-			VarToStr(var, buffer);
+			Valor3 =	(msgsetup[21] - '0') * pow(10, 3) +
+						(msgsetup[22] - '0') * pow(10, 2) +
+						(msgsetup[23] - '0') * pow(10, 1) +
+						(msgsetup[24] - '0') +
+						(msgsetup[26] - '0') * pow(10, -1);
 
-			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem2);
-			WriteItem(pIOPCItemMgt, hClientItem2, var);
+			Valor4 =	(msgsetup[28] - '0') * pow(10, 4) +
+						(msgsetup[29] - '0') * pow(10, 3) +
+						(msgsetup[30] - '0') * pow(10, 2) +
+						(msgsetup[31] - '0') * pow(10, 1) +
+						(msgsetup[32] - '0');
+			
+			/*Exibe a hora corrente*/
+			GetSystemTime(&SystemTime);
+			printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
+				SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+				SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
 
-			var.iVal++;
-			VarToStr(var, buffer);
+			printf("Mensagem de setup de equipamentos escrito no Servidor OPC\n\n");
 
-			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem3);
-			WriteItem(pIOPCItemMgt, hClientItem3, var);
+			aux.vt = VT_I1;
+			aux.iVal = Valor1;
+			WriteItem(pIOPCItemMgt, hClientItem1, aux);
+			printf("Numero da linha de envase: %02d\n", Valor1);
 
-			var.iVal++;
-			VarToStr(var, buffer);
+			aux.vt = VT_I4;
+			aux.intVal = Valor4;
+			WriteItem(pIOPCItemMgt, hClientItem2, aux);
+			printf("Set-point de velocidade da esteira (cm/s): %06.1f\n", Valor2);
 
-			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
-			WriteItem(pIOPCItemMgt, hClientItem4, var);
+			aux.vt = VT_R4;
+			aux.fltVal = Valor2;
+			WriteItem(pIOPCItemMgt, hClientItem3, aux);
+			printf("Set-point da maquina de enchimento (m3/min): %06.1f\n", Valor3);
+
+			aux.vt = VT_R8;
+			aux.dblVal = Valor3;
+			WriteItem(pIOPCItemMgt, hClientItem4, aux);
+			printf("Set-point da maquina separadora (cm/s): %05d\n\n", Valor4);
 
 			nTipoEvento = -1;
 			ret = 1;
 		}
-
-
-		var.iVal++;
-		VarToStr(var, buffer);
 
 		/*********************************************************************************/
 		// Tratamento dos dados
