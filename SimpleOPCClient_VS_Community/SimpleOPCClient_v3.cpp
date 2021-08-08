@@ -161,10 +161,15 @@ char	msgstatus[TAMMSGSTATUS + 1] = "99/#######/#####.#/#####.#/###/###/###/###",
 		msgsol[TAMMSGSOL + 1] = "00/#######";
 
 /* ======================================================================================================================== */
-/*  HANDLE MUTEX*/
+/* HANDLE MUTEX*/
 
 HANDLE hMutexStatus;
 HANDLE hMutexSetup;
+
+/* ======================================================================================================================== */
+/* HANDLE EVENTOS*/
+
+HANDLE hEvent;
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
@@ -200,6 +205,11 @@ void main(void) {
 	GetLastError();
 
 	hMutexSetup = CreateMutex(NULL, FALSE, "MutexSetup");
+	GetLastError();
+
+	/*------------------------------------------------------------------------------*/
+	/*Criando objetos do tipo eventos*/
+	hEvent = CreateEvent(NULL, FALSE, FALSE, "Escrita");
 	GetLastError();
 
 	/*------------------------------------------------------------------------------*/
@@ -302,8 +312,15 @@ void main(void) {
 			VarToStr(sdadoLeitura[a], buf);
 		}
 		
-		if (FALSE)
-		{
+		ret = WaitForSingleObject(hEvent, 1);
+		GetLastError();
+
+		nTipoEvento = ret - WAIT_OBJECT_0;
+
+		if (nTipoEvento == 0) {
+
+			//msgsetup tem os dados
+
 			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
 			WriteItem(pIOPCItemMgt, hClientItem1, var);
 
@@ -324,11 +341,11 @@ void main(void) {
 
 			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
 			WriteItem(pIOPCItemMgt, hClientItem4, var);
-		}
-		else
-		{
 
+			nTipoEvento = -1;
+			ret = 1;
 		}
+
 
 		var.iVal++;
 		VarToStr(var, buffer);
@@ -354,6 +371,9 @@ void main(void) {
 			for (int j = 11; j <= TAMMSGSTATUS; j++) {
 				msgstatus[j] = messageOPCToTCP[j - 11];
 			}
+
+			nTipoEvento = -1;
+			ret = 1;
 		}
 		
 		ret = ReleaseMutex(hMutexStatus);
@@ -388,6 +408,7 @@ void main(void) {
 	CloseHandle(hServidorSockets);
 	CloseHandle(hMutexStatus);
 	CloseHandle(hMutexSetup);
+	CloseHandle(hEvent);
 
 }
 
@@ -869,6 +890,10 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 					}
 
 					ret = ReleaseMutex(hMutexStatus);
+					GetLastError();
+
+					/*Diz para o programa escrever no servidor OPC a mensagem de setup*/
+					SetEvent(hEvent);
 					GetLastError();
 
 					/*Imprime mensagem recebida em cyan*/
