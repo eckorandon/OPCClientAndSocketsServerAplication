@@ -15,39 +15,53 @@
 
 	Data: Agosto de 2021
 
-	Aplicação multi thread que tem como objetivo a integracao de um servidor de sockets
-	e um cliente OPC. O servidor de sockets de comunica com um cliente de sockets
-	instalado em outra maquina de uma mesma rede e o cliente OPC se comunica com um
+	Aplicacao multithread que tem como objetivo a integracao de um servidor de sockets
+	e um cliente OPC. O servidor de sockets se comunica com um cliente de sockets
+	instalado em outra maquina em uma mesma rede local e o cliente OPC se comunica com um
 	servidor OPC.
+
+	O cliente de sockets funciona como um MES (Manufacturing Execution System), que
+	basicamente tem o objetivo de capturar de maneira contínua informações da planta
+	industrial e da area de gestao de negocios da empresa para a geracao de scheduling.
+	Ja o servidor OPC, do tipo classico, se comunica diretamente com os CLPs
+	(Controladores Logicos Programaveis) que sao os responsaveis pelo controle das linhas
+	de envase do processo de producao de bebidas nao alcoolicas.
+
+	Desse modo, o MES deve ser abastecido de maneira continua com os dados do status da
+	planta que estão disponiveis no servidor OPC e os CLPs devem receber valores de setup
+	de producao provenientes do MES, esse valores correspondem a cada tipo diferente de
+	produto a ser envasado.
 */
 
-// Para a correta compilacao deste programa, nao se esqueca de incluir a
-// biblioteca Winsock2 (Ws2_32.lib) no projeto ! (No Visual C++ Express Edition:
-// Project->Properties->Configuration Properties->Linker->Input->Additional Dependencies).
+/* ======================================================================================================================== */
+/* BIBLIOTECA WINSOCK2*/
+/*
+	Para que o programa compile e funcione corretamente e necessario incluir a biblioteca
+	Winsock2 (Ws2_32.lib) no projeto. Para isso siga os seguintes passos:
 
-// Simple OPC Client
-//
-// This is a modified version of the "Simple OPC Client" originally
-// developed by Philippe Gras (CERN) for demonstrating the basic techniques
-// involved in the development of an OPC DA client.
-//
-// The modifications are the introduction of two C++ classes to allow the
-// the client to ask for callback notifications from the OPC server, and
-// the corresponding introduction of a message comsumption loop in the
-// main program to allow the client to process those notifications. The
-// C++ classes implement the OPC DA 1.0 IAdviseSink and the OPC DA 2.0
-// IOPCDataCallback client interfaces, and in turn were adapted from the
-// KEPWARE´s  OPC client sample code. A few wrapper functions to initiate
-// and to cancel the notifications were also developed.
-//
-// The original Simple OPC Client code can still be found (as of this date)
-// in
-//        http://pgras.home.cern.ch/pgras/OPCClientTutorial/
-//
-//
-// Luiz T. S. Mendes - DELT/UFMG - 15 Sept 2011
-// luizt at cpdee.ufmg.br
-//
+	1. No Visual Studio Community Edition va em
+	Project->Properties->Configuration Properties->Linker->Input
+
+	2. No campo Additional Dependencies adicione a biblioteca Ws2_32.lib
+*/
+
+/* ======================================================================================================================== */
+/* CREDITOS*/
+/*
+	A thread principal da nossa aplicacao e baseada na versao "Simple OPC Client"
+	desenvolvida por Philippe Gras (CERN) e pode ser encontrada na data atual em
+	http://pgras.home.cern.ch/pgras/OPCClientTutorial/
+
+	A mesma foi alterada pelo professor Luiz T. S. Mendes do DELT/UFMG em
+	15 Setembro de 2011, onde ele introduziu duas classes em C++ para permitir
+	que o cliente OPC requisite callback notifications de um servidor OPC.
+	Também foi necessario incluir um loop de consumo de mensagens no programa
+	principal para permitir que o cliente OPC processe essas notificacoes.
+	As classes em C++ implementam as interfaces para o cliente do
+	OPC DA 1.0 IAdviseSink (removida nesta aplicação) e do OPC DA 2.0 
+	IOPCDataCallback. Algumas funcoes para inicializacao e cancelamento das 
+	funcoes tambem foram implementadas e alteradas pela dupla.
+*/
 
 #undef UNICODE
 
@@ -63,6 +77,8 @@
 
 #define TAMMSGSTATUS            42
 #define TAMMSGACK               10
+#define TAMMSGSETUP				33
+#define TAMMSGSOL				10
 
 //#define REMOTE_SERVER_NAME L"your_path"
 
@@ -85,7 +101,6 @@
 #include "opcda.h"
 #include "opcerror.h"
 #include "SimpleOPCClient_v3.h"
-#include "SOCAdviseSink.h"
 #include "SOCDataCallback.h"
 #include "SOCWrapperFunctions.h"
 
@@ -102,6 +117,7 @@ using namespace std;
 /* DECLARACAO DO PROTOTIPO DE FUNCAO DA THREAD SECUNDARIA*/
 
 DWORD WINAPI ServidorSockets(LPVOID index);
+void decode();
 
 /* ======================================================================================================================== */
 /*  DECLARACAO DAS VARIAVEIS GLOBAIS*/
@@ -115,13 +131,14 @@ wchar_t ITEM_ID2[] = L"Random.Int2";
 wchar_t ITEM_ID3[] = L"Random.Int4";
 wchar_t ITEM_ID4[] = L"Random.Real4";
 wchar_t ITEM_ID5[] = L"Saw-toothed Waves.Int2";
-wchar_t ITEM_ID6[]= L"Saw-toothed Waves.Real4";
+wchar_t ITEM_ID6[] = L"Saw-toothed Waves.Real4";
 
 wchar_t ITEM_CLIENT_ID1[] = L"Bucket Brigade.Int1";
 wchar_t ITEM_CLIENT_ID2[] = L"Bucket Brigade.Int4";
 wchar_t ITEM_CLIENT_ID3[] = L"Bucket Brigade.Real4";
 wchar_t ITEM_CLIENT_ID4[] = L"Bucket Brigade.Real8";
 
+/*ATENCAO PARA ISSO*/
 int nseq = 0;                                                   /*Valor referente ao numero sequensial da mensagem*/
 
 VARIANT *sdadoLeitura;
@@ -137,12 +154,18 @@ OPCHANDLE hClientItem2;
 OPCHANDLE hClientItem3;
 OPCHANDLE hClientItem4;
 
-/* ======================================================================================================================== */
-/*  THREAD PRIMARIA*/
+char	msgstatus[TAMMSGSTATUS + 1] = "99/#######/#####.#/#####.#/###/###/###/###",
+		msgack[TAMMSGACK + 1] = "22/#######",
+		msgsetup[TAMMSGSETUP + 1] = "77/#######/##/####.#/####.#/#####",
+		msgsol[TAMMSGSOL + 1] = "00/#######";
 
-//////////////////////////////////////////////////////////////////////
-// Read the value of an item on an OPC server. 
-//
+/* ======================================================================================================================== */
+/* THREAD PRIMARIA*/
+/* INICIALIZACAO E CONFIGURACAO DO SERVIDOR OPC*/
+/* INICIALIZACAO DA THREAD SECUNDARIA*/
+/* LEITURA E ESCRITA DE MULTIPLOS ITENS NO SERVIDOR OPC*/
+/* PASSAGEM DE PARAMETROS PARA O SERVIDOR DE SOCKETS*/
+
 void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Nomeando terminal*/
@@ -163,14 +186,14 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 
-	OPCHANDLE hServerGroup; // server handle to the group
+	OPCHANDLE hServerGroup;		// server handle to the group
 
-	OPCHANDLE hServerItem1;  // server handle to the item
-	OPCHANDLE hServerItem2;  // server handle to the item
-	OPCHANDLE hServerItem3;  // server handle to the item
-	OPCHANDLE hServerItem4;  // server handle to the item
-	OPCHANDLE hServerItem5;  // server handle to the item
-	OPCHANDLE hServerItem6;  // server handle to the item
+	OPCHANDLE hServerItem1;		// server handle to the item
+	OPCHANDLE hServerItem2;		// server handle to the item
+	OPCHANDLE hServerItem3;		// server handle to the item
+	OPCHANDLE hServerItem4;		// server handle to the item
+	OPCHANDLE hServerItem5;		// server handle to the item
+	OPCHANDLE hServerItem6;		// server handle to the item
 	
 	char buf[100];
 
@@ -215,7 +238,6 @@ void main(void) {
 
 	int bRet;
 	MSG msg;
-	DWORD ticks1, ticks2;
     
 	// Establish a callback asynchronous read by means of the IOPCDataCallback
 	// (OPC DA 2.0) method. We first instantiate a new SOCDataCallback object and
@@ -245,8 +267,7 @@ void main(void) {
 	var.iVal = 0;
 	VarToStr(var, buffer);
 
-	ticks1 = GetTickCount();
-	do {
+	while (true) {
 		bRet = GetMessage(&msg, NULL, 0, 0);
 
 		if (!bRet) {
@@ -301,12 +322,7 @@ void main(void) {
 		
 		decode();
 		printf("\n\n%s\n\n", messageOPCToTCP);
-
-		/************************************************************/
-
-        ticks2 = GetTickCount();
 	}
-	while ((ticks2 - ticks1) < 10000);
 
 	// Cancel the callback and release its reference
 	printf("Cancelling the IOPCDataCallback notifications...\n");
@@ -660,9 +676,7 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 		k = 0,
 		recvbuflen = DEFAULT_BUFLEN;
 
-	char recvbuf[DEFAULT_BUFLEN],
-		 msgstatus[TAMMSGSTATUS + 1] = "99/#######/##/####.#/####.#/#####",
-		 msgack[TAMMSGACK + 1] = "22/#######";
+	char recvbuf[DEFAULT_BUFLEN];
 
 	/*------------------------------------------------------------------------------*/
 	/*Configuracoes do servidor*/
@@ -719,98 +733,113 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 		exit(0);
 	}
 
-	/*Aguarda a conexao de um cliente de sockets entao aceita*/
-	ClientSocket = accept(ListenSocket, NULL, NULL);
-	if (ClientSocket == INVALID_SOCKET) {
-		printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
-		WSACleanup();
-		exit(0);
-	}
+	while (true) {
 
-	/*Recebe e envia mensagens ate que a conexao seja encerrada*/
-	do {
-		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-
-			/*Exibe a hora corrente*/
-			GetSystemTime(&SystemTime);
-			printf("SISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\n",
-				SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
-				SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
-
-			/*Caso tenha solicitado status da planta*/
-			if (iResult == 10) {
-
-				/*Imprime mensagem recebida em verde*/
-				printf("\x1b[32m");
-				printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
-				printf("\x1b[0m");
-
-				nseq = (nseq + 2) % 9999999;
-
-				for (int j = 3; j < 10; j++) {
-					k = nseq / pow(10, (9 - j));
-					k = k % 10;
-					msgstatus[j] = k + '0';
-				}
-
-				/*Envia mensagem com dados do status da planta*/
-				iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
-				if (iSendResult == SOCKET_ERROR) {
-					printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
-					closesocket(ClientSocket);
-					WSACleanup();
-					exit(0);
-				}
-
-				/*Imprime mensagem enviada em amarelo*/
-				printf("\x1b[33m");
-				printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
-				printf("\x1b[0m");
-			}
-
-			/*Caso tenha solicitado confirmcao*/
-			if (iResult == 33) {
-
-				/*Imprime mensagem recebida em cyan*/
-				printf("\x1b[36m");
-				printf("Mensagem de setup de equipamentos recebida do MES\n%.33s\n\n", recvbuf);
-				printf("\x1b[0m");
-
-				nseq = (nseq + 2) % 9999999;
-
-				for (int j = 3; j < 10; j++) {
-					k = nseq / pow(10, (9 - j));
-					k = k % 10;
-					msgack[j] = k + '0';
-				}
-
-				/*Envia mensagem de confirmacao (ACK)*/
-				iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
-				if (iSendResult == SOCKET_ERROR) {
-					printf("Falha ao enviar a mensagem de confirmacao (ACK)! Erro = %d\n", WSAGetLastError());
-					closesocket(ClientSocket);
-					WSACleanup();
-					exit(0);
-				}
-
-				/*Imprime mensagem enviada em magenta*/
-				printf("\x1b[35m");
-				printf("Mensagem de ACK enviada ao MES\n%s\n\n", msgack);
-				printf("\x1b[0m");
-			}
-		}
-		else if (iResult == 0) {
-			printf("Nenhum dado recebi, encerrando servidor de sockets!");
-		}
-		else if (iResult == SOCKET_ERROR) {
-			printf("Falha ao receber dados do cliente sockets - recv()! Erro = %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
+		/*Aguarda a conexao de um cliente de sockets entao aceita*/
+		ClientSocket = accept(ListenSocket, NULL, NULL);
+		if (ClientSocket == INVALID_SOCKET) {
+			printf("Falha ao aceitar a conexao com o cliente de sockets! Erro = %d\n", WSAGetLastError());
+			closesocket(ListenSocket);
 			WSACleanup();
 			exit(0);
 		}
-	} while (iResult > 0);
+
+		/*Recebe e envia mensagens ate que a conexao seja encerrada*/
+		do {
+			iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+			if (iResult > 0) {
+
+				/*Exibe a hora corrente*/
+				GetSystemTime(&SystemTime);
+				printf("SISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\n",
+					SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
+					SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+				/*Numero sequencial da mensagem*/
+				nseq = (((recvbuf[3] - '0') * pow(10, 6)) +
+						((recvbuf[4] - '0') * pow(10, 5)) +
+						((recvbuf[5] - '0') * pow(10, 4)) +
+						((recvbuf[6] - '0') * pow(10, 3)) +
+						((recvbuf[7] - '0') * pow(10, 2)) +
+						((recvbuf[8] - '0') * pow(10, 1)) +
+						(recvbuf[9] - '0') +
+						1);
+
+				nseq = nseq % 9999999;
+
+				/*Caso tenha solicitado status da planta*/
+				if (iResult == 10) {
+
+					/*Imprime mensagem recebida em verde*/
+					printf("\x1b[32m");
+					printf("Msg de requisicao de dados recebida do MES\n%.10s\n\n", recvbuf);
+					printf("\x1b[0m");
+
+					for (int j = 3; j < 10; j++) {
+						k = nseq / pow(10, (9 - j));
+						k = k % 10;
+						msgstatus[j] = k + '0';
+					}
+
+
+
+					printf("- Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
+
+					/*Envia mensagem com dados do status da planta*/
+					iSendResult = send(ClientSocket, msgstatus, TAMMSGSTATUS, 0);
+					if (iSendResult == SOCKET_ERROR) {
+						printf("Falha ao enviar a mensagem com dados do status da planta! Erro = %d\n", WSAGetLastError());
+						closesocket(ClientSocket);
+						WSACleanup();
+						exit(0);
+					}
+
+					/*Imprime mensagem enviada em amarelo*/
+					printf("\x1b[33m");
+					printf("Mensagem de status da planta enviada ao MES\n%s\n\n", msgstatus);
+					printf("\x1b[0m");
+				}
+
+				/*Caso tenha solicitado confirmcao*/
+				if (iResult == 33) {
+
+					/*Imprime mensagem recebida em cyan*/
+					printf("\x1b[36m");
+					printf("Mensagem de setup de equipamentos recebida do MES\n%.33s\n\n", recvbuf);
+					printf("\x1b[0m");
+
+					for (int j = 3; j < 10; j++) {
+						k = nseq / pow(10, (9 - j));
+						k = k % 10;
+						msgack[j] = k + '0';
+					}
+
+					/*Envia mensagem de confirmacao (ACK)*/
+					iSendResult = send(ClientSocket, msgack, TAMMSGACK, 0);
+					if (iSendResult == SOCKET_ERROR) {
+						printf("Falha ao enviar a mensagem de confirmacao (ACK)! Erro = %d\n", WSAGetLastError());
+						closesocket(ClientSocket);
+						WSACleanup();
+						exit(0);
+					}
+
+					/*Imprime mensagem enviada em magenta*/
+					printf("\x1b[35m");
+					printf("Mensagem de ACK enviada ao MES\n%s\n\n", msgack);
+					printf("\x1b[0m");
+				}
+			}
+			else if (iResult == 0) {
+				printf("Nenhum dado recebi, encerrando servidor de sockets!");
+			}
+			else if (iResult == SOCKET_ERROR) {
+				printf("Falha ao receber dados do cliente sockets - recv()! Erro = %d\n", WSAGetLastError());
+				closesocket(ClientSocket);
+				WSACleanup();
+				exit(0);
+			}
+		} while (iResult > 0);
+	}
 
 	/*Fechando o socket*/
 	closesocket(ListenSocket);
@@ -836,8 +865,7 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	ExitThread((DWORD)index);
 }
 
-void decode()
-{
+void decode() {
 	char buffer[100];
 	char* aux = new char;
 
@@ -889,12 +917,10 @@ void decode()
 	sprintf(msg3, "%c%c%c", varN3[0], varN3[1], varN3[2]);
 
 	sprintf(varN4, "%6.1f", var4);
-	if (var4 > 10000)
-	{
+	if (var4 > 10000) {
 		sprintf(msg4, "%c%c%c%c%c%c", varN4[1], varN4[2], varN4[3], varN4[4], varN4[5], varN4[6]);
 	}
-	else
-	{
+	else {
 		sprintf(msg4, "%c%c%c%c%c%c", varN4[0], varN4[1], varN4[2], varN4[3], varN4[4], varN4[5]);
 	}
 
