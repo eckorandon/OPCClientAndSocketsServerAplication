@@ -194,10 +194,6 @@ void main(void) {
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
 
-	i = 2;
-	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
-	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
-
 	/*------------------------------------------------------------------------------*/
 	/*Criando objetos do tipo mutex*/
 	hMutexStatus = CreateMutex(NULL, FALSE, "MutexStatus");
@@ -400,6 +396,7 @@ void main(void) {
 // Instantiate the IOPCServer interface of the OPCServer
 // having the name ServerName. Return a pointer to this interface
 //
+
 IOPCServer* InstantiateServer(wchar_t ServerName[])
 {
 	CLSID CLSID_OPCServer;
@@ -442,6 +439,7 @@ IOPCServer* InstantiateServer(wchar_t ServerName[])
 // Returns a pointer to the IOPCItemMgt interface of the added group
 // and a server opc handle to the added group.
 //
+
 void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt, 
 				 OPCHANDLE& hServerGroup)
 {
@@ -468,7 +466,7 @@ void AddTheGroup(IOPCServer* pIOPCServer, IOPCItemMgt* &pIOPCItemMgt,
 // Add the Item ITEM_ID to the group whose IOPCItemMgt interface
 // is pointed by pIOPCItemMgt pointer. Return a server opc handle
 // to the item.
- 
+
 void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& hServerItem2, OPCHANDLE& hServerItem3, OPCHANDLE& hServerItem4, OPCHANDLE& hServerItem5, OPCHANDLE& hServerItem6, OPCHANDLE& hClientItem1, OPCHANDLE& hClientItem2, OPCHANDLE& hClientItem3, OPCHANDLE& hClientItem4)
 {
 	HRESULT hr;
@@ -626,6 +624,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 // handle and belonging to the group whose one interface is pointed by
 // pGroupIUnknown. The value is put in varValue. 
 //
+
 void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValue)
 {
 	//get a pointer to the IOPCSyncIOInterface:
@@ -650,10 +649,12 @@ void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValu
 	pIOPCSyncIO->Release();
 }
 
+
 ///////////////////////////////////////////////////////////////////////////
 // Remove the item whose server handle is hServerItem from the group
 // whose IOPCItemMgt interface is pointed by pIOPCItemMgt
 //
+
 void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hServerItem2, OPCHANDLE hServerItem3, OPCHANDLE hServerItem4, OPCHANDLE hServerItem5, OPCHANDLE hServerItem6, OPCHANDLE hClientItem1, OPCHANDLE hClientItem2, OPCHANDLE hClientItem3, OPCHANDLE hClientItem4)
 {
 	// server handle of items to remove:
@@ -684,6 +685,7 @@ void RemoveItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE hServerItem, OPCHANDLE hSer
 // Remove the Group whose server handle is hServerGroup from the server
 // whose IOPCServer interface is pointed by pIOPCServer
 //
+
 void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 {
 	// Remove the group:
