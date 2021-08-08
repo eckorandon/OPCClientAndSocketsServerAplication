@@ -885,9 +885,9 @@ void decode() {
 	char msg1[4];
 	char msg2[4];
 	char msg3[4];
-	char msg4[7];
+	char msg4[8];
 	char msg5[4];
-	char msg6[7];
+	char msg6[8];
 
 	VarToStr(sdadoLeitura[0], buffer);
 	var1 = atof(buffer);
@@ -916,19 +916,14 @@ void decode() {
 	sprintf(varN3, "%.0f", var3);
 	sprintf(msg3, "%c%c%c", varN3[0], varN3[1], varN3[2]);
 
-	sprintf(varN4, "%6.1f", var4);
-	if (var4 > 10000) {
-		sprintf(msg4, "%c%c%c%c%c%c", varN4[1], varN4[2], varN4[3], varN4[4], varN4[5], varN4[6]);
-	}
-	else {
-		sprintf(msg4, "%c%c%c%c%c%c", varN4[0], varN4[1], varN4[2], varN4[3], varN4[4], varN4[5]);
-	}
+	sprintf(varN4, "%07.1f", var4);
+	sprintf(msg4, "%c%c%c%c%c%c%c", varN4[0], varN4[1], varN4[2], varN4[3], varN4[4], varN4[5], varN4[6]);
 
 	sprintf(varN5, "%03.0f", abs(var5));
 	sprintf(msg5, "%c%c%c", varN5[0], varN5[1], varN5[2]);
 
-	sprintf(varN6, "%06.1f", var6);
-	sprintf(msg6, "%c%c%c%c%c%c", varN6[0], varN6[1], varN6[2], varN6[3], varN6[4], varN6[5]);
+	sprintf(varN6, "%07.1f", var6);
+	sprintf(msg6, "%c%c%c%c%c%c%c", varN6[0], varN6[1], varN6[2], varN6[3], varN6[4], varN6[5], varN6[6]);
 
-	sprintf(messageOPCToTCP, "%s/%s/%s/%s/%s/%s", msg1, msg2, msg3, msg4, msg5, msg6);
+	sprintf(messageOPCToTCP, "%s/%s/%s/%s/%s/%s", msg4, msg6, msg1, msg2, msg3, msg5);
 }
