@@ -21,14 +21,14 @@
 	servidor OPC.
 
 	O cliente de sockets funciona como um MES (Manufacturing Execution System), que
-	basicamente tem o objetivo de capturar de maneira contínua informações da planta
+	basicamente tem o objetivo de capturar de maneira contÃ­nua informaÃ§Ãµes da planta
 	industrial e da area de gestao de negocios da empresa para a geracao de scheduling.
 	Ja o servidor OPC, do tipo classico, se comunica diretamente com os CLPs
 	(Controladores Logicos Programaveis) que sao os responsaveis pelo controle das linhas
 	de envase do processo de producao de bebidas nao alcoolicas.
 
 	Desse modo, o MES deve ser abastecido de maneira continua com os dados do status da
-	planta que estão disponiveis no servidor OPC e os CLPs devem receber valores de setup
+	planta que estÃ£o disponiveis no servidor OPC e os CLPs devem receber valores de setup
 	de producao provenientes do MES, esse valores correspondem a cada tipo diferente de
 	produto a ser envasado.
 */
@@ -55,10 +55,10 @@
 	A mesma foi alterada pelo professor Luiz T. S. Mendes do DELT/UFMG em
 	15 Setembro de 2011, onde ele introduziu duas classes em C++ para permitir
 	que o cliente OPC requisite callback notifications de um servidor OPC.
-	Também foi necessario incluir um loop de consumo de mensagens no programa
+	TambÃ©m foi necessario incluir um loop de consumo de mensagens no programa
 	principal para permitir que o cliente OPC processe essas notificacoes.
 	As classes em C++ implementam as interfaces para o cliente do
-	OPC DA 1.0 IAdviseSink (removida nesta aplicação) e do OPC DA 2.0 
+	OPC DA 1.0 IAdviseSink (removida nesta aplicaÃ§Ã£o) e do OPC DA 2.0 
 	IOPCDataCallback. Algumas funcoes para inicializacao e cancelamento das 
 	funcoes tambem foram implementadas e alteradas pela dupla.
 */
@@ -181,9 +181,9 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 	/*Criando thread secundaria*/
-	HANDLE hServidorSockets;
+	HANDLE hServidorSockets, hEscritaSincrona;
 
-	DWORD dwServidorSocketsId;
+	DWORD dwServidorSocketsId, dwEscritaSincronaId;
 	DWORD dwExitCode = 0;
 
 	DWORD ret;
@@ -193,6 +193,10 @@ void main(void) {
 	i = 1;
 	hServidorSockets = CreateThread(NULL, 0, ServidorSockets, (LPVOID)i, 0, &dwServidorSocketsId);
 	if (hServidorSockets) printf("Thread %d criada com Id = %0d \n", i, dwServidorSocketsId);
+
+	i = 2;
+	hEscritaSincrona = CreateThread(NULL, 0, EscritaSincrona, (LPVOID)i, 0, &dwEscritaSincronaId);
+	if (hEscritaSincrona) printf("Thread %d criada com Id = %0d \n", i, dwEscritaSincronaId);
 
 	/*------------------------------------------------------------------------------*/
 	/*Criando objetos do tipo mutex*/
@@ -270,11 +274,11 @@ void main(void) {
 	SetDataCallback(pIOPCItemMgt, pSOCDataCallback, pIConnectionPoint, &dwCookie);
 
 	// Change the group to the ACTIVE state so that we can receive the
-	// server´s callback notification
+	// serverÂ´s callback notification
 	printf("Changing the group state to ACTIVE...\n");
     SetGroupActive(pIOPCItemMgt);
 
-	// Enter again a message pump in order to process the server´s callback
+	// Enter again a message pump in order to process the serverÂ´s callback
 	// notifications, for the same reason explained before.
 	
 	printf("Waiting for IOPCDataCallback notifications...\n\n");
@@ -388,6 +392,7 @@ void main(void) {
 	CloseHandle(hServidorSockets);
 	CloseHandle(hMutexStatus);
 	CloseHandle(hMutexSetup);
+
 }
 
 
@@ -645,7 +650,6 @@ void WriteItem(IUnknown* pGroupIUnknown, OPCHANDLE hServerItem, VARIANT& varValu
 	pIOPCSyncIO->Release();
 }
 
-
 ///////////////////////////////////////////////////////////////////////////
 // Remove the item whose server handle is hServerItem from the group
 // whose IOPCItemMgt interface is pointed by pIOPCItemMgt
@@ -693,9 +697,10 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 }
 
 
-////////////////////////////////////////////////////////////////////////
-//
-//
+/* ======================================================================================================================== */
+/* THREAD SECUNDARIA*/
+/* */
+
 DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
 	/*Declarando variaveis locais*/
@@ -710,9 +715,9 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	DWORD ret;
 
 	int iResult,
-		iSendResult,
-		k = 0,
-		recvbuflen = DEFAULT_BUFLEN;
+		  iSendResult,
+		  k = 0,
+		  recvbuflen = DEFAULT_BUFLEN;
 
 	char recvbuf[DEFAULT_BUFLEN];
 

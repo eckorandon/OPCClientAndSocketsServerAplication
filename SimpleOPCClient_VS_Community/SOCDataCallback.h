@@ -70,7 +70,7 @@ class SOCDataCallback : public IOPCDataCallback
 		VARIANT dadoLeitura[6];
 		OPCHANDLE handleLeitura[6];
 
-	private:
+	  private:
 		DWORD m_cnRef;
 	};
 

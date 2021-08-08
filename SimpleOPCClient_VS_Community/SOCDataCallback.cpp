@@ -2,7 +2,7 @@
 // C++ class to implement the OPC DA 2.0 IOPCDataCallback interface.
 //
 // Note that only the ::OnDataChangeMethod() is currently implemented
-// here. This code is largely based on the KEPWARE´s sample client code.
+// here. This code is largely based on the KEPWAREÂ´s sample client code.
 //
 // Luiz T. S. Mendes - DELT/UFMG - 13 Sept 2011
 //
@@ -106,8 +106,8 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 	WORD quality;
 
 	// Validate arguments.  Return with "invalid argument" error code 
-	// if any are invalid. KEPWARE´s original code checks also if the
-	// "hgroup" parameter (the client´s handle for the group) was also
+	// if any are invalid. KEPWAREÂ´s original code checks also if the
+	// "hgroup" parameter (the clientÂ´s handle for the group) was also
 	// NULL, but we dropped this check since the Simple OPC Client
 	// sets the client handle to 0 ...
 	if (dwCount					== 0	||
@@ -181,7 +181,7 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnDataChange(
 			printf(" Time: %s %s\n", szLocalDate, szLocalTime);
 			*/
 		}
-		else printf ("IOPCDataCallback: Unsupported item type\n");
+		else if(0) printf ("IOPCDataCallback: Unsupported item type\n");
 	}
 
 	// Return "success" code.  Note this does not mean that there were no 
@@ -219,17 +219,14 @@ HRESULT STDMETHODCALLTYPE SOCDataCallback::OnWriteComplete(
 
 HRESULT STDMETHODCALLTYPE SOCDataCallback::OnCancelComplete(
 	DWORD dwTransID,
-	OPCHANDLE hGroup)
-{
+	OPCHANDLE hGroup) {
 	return(S_OK);
 }
 
-VARIANT* SOCDataCallback::sendValues()
-{
+VARIANT* SOCDataCallback::sendValues() {
 	return this->dadoLeitura;
 }
 
-OPCHANDLE* SOCDataCallback::sendHandles()
-{
+OPCHANDLE* SOCDataCallback::sendHandles() {
 	return this->handleLeitura;
 }
