@@ -74,6 +74,7 @@
 #include <ObjIdl.h>
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <conio.h>												/*_getch()*/
 #include <winsock2.h>
@@ -126,7 +127,15 @@ int nseq = 0;                                                   /*Valor referent
 VARIANT *sdadoLeitura;
 OPCHANDLE *shandleLeitura;
 
-char* messageOPCToTCP;
+char* messageOPCToTCP = new char;
+
+IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
+IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
+
+OPCHANDLE hClientItem1;
+OPCHANDLE hClientItem2;
+OPCHANDLE hClientItem3;
+OPCHANDLE hClientItem4;
 
 /* ======================================================================================================================== */
 /*  THREAD PRIMARIA*/
@@ -154,9 +163,6 @@ void main(void) {
 
 	/*------------------------------------------------------------------------------*/
 
-	IOPCServer* pIOPCServer = NULL;   //pointer to IOPServer interface
-	IOPCItemMgt* pIOPCItemMgt = NULL; //pointer to IOPCItemMgt interface
-
 	OPCHANDLE hServerGroup; // server handle to the group
 
 	OPCHANDLE hServerItem1;  // server handle to the item
@@ -165,11 +171,6 @@ void main(void) {
 	OPCHANDLE hServerItem4;  // server handle to the item
 	OPCHANDLE hServerItem5;  // server handle to the item
 	OPCHANDLE hServerItem6;  // server handle to the item
-
-	OPCHANDLE hClientItem1;
-	OPCHANDLE hClientItem2;
-	OPCHANDLE hClientItem3;
-	OPCHANDLE hClientItem4;
 	
 	char buf[100];
 
@@ -243,16 +244,6 @@ void main(void) {
 	var.vt = VT_I4;
 	var.iVal = 0;
 	VarToStr(var, buffer);
-	
-	char* message;
-	char* aux;
-
-	char* var1;
-	char* var2;
-	char* var3;
-	char* var4;
-	char* var5;
-	char* var6;
 
 	ticks1 = GetTickCount();
 	do {
@@ -268,82 +259,48 @@ void main(void) {
 		sdadoLeitura = pSOCDataCallback->sendValues();
 		shandleLeitura = pSOCDataCallback->sendHandles();
 
-		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
-		WriteItem(pIOPCItemMgt, hClientItem1, var);
+		for (int a = 0; a < 6; a++)
+		{
+			VarToStr(sdadoLeitura[a], buf);
+			printf("OPCHANDLE: %d | Valor: %s\n", (int)shandleLeitura[a], buf);
+		}
+		
+		if (FALSE)
+		{
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem1);
+			WriteItem(pIOPCItemMgt, hClientItem1, var);
 
-		var.iVal++;
-		VarToStr(var, buffer);
+			var.iVal++;
+			VarToStr(var, buffer);
 
-		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem2);
-		WriteItem(pIOPCItemMgt, hClientItem2, var);
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem2);
+			WriteItem(pIOPCItemMgt, hClientItem2, var);
 
-		var.iVal++;
-		VarToStr(var, buffer);
+			var.iVal++;
+			VarToStr(var, buffer);
 
-		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem3);
-		WriteItem(pIOPCItemMgt, hClientItem3, var);
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem3);
+			WriteItem(pIOPCItemMgt, hClientItem3, var);
 
-		var.iVal++;
-		VarToStr(var, buffer);
+			var.iVal++;
+			VarToStr(var, buffer);
 
-		printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
-		WriteItem(pIOPCItemMgt, hClientItem4, var);
+			printf("\nEscrevendo o valor %s na variavel com o handle %d\n\n", buffer, (int)hClientItem4);
+			WriteItem(pIOPCItemMgt, hClientItem4, var);
+		}
+		else
+		{
 
-		printf("\n\n");
+		}
 
 		var.iVal++;
 		VarToStr(var, buffer);
 
 		/*********************************************************************************/
 		// Tratamento dos dados
-
-		VarToStr(sdadoLeitura[0], buffer);
-		strcpy(var1, buffer);
-
-		VarToStr(sdadoLeitura[1], buffer);
-		strcpy(var2, buffer);
-
-		VarToStr(sdadoLeitura[2], buffer);
-		strcpy(var3, buffer);
-
-		VarToStr(sdadoLeitura[3], buffer);
-		strcpy(var4, buffer);
-
-		VarToStr(sdadoLeitura[4], buffer);
-		strcpy(var5, buffer);
-
-		VarToStr(sdadoLeitura[5], buffer);
-		strcpy(var6, buffer);
-
-		char* aux;
-
-		strncpy(aux, var1, 3);
-		strcat(messageOPCToTCP, aux);
-
-		strcat(messageOPCToTCP, "/");
-
-		strncpy(aux, var2, 3);
-		strcat(messageOPCToTCP, aux);
-
-		strcat(messageOPCToTCP, "/");
-
-		strncpy(aux, var3, 3);
-		strcat(messageOPCToTCP, aux);
-
-		strcat(messageOPCToTCP, "/");
-
-		strncpy(aux, var4, 3);
-		strcat(messageOPCToTCP, aux);
-
-		strcat(messageOPCToTCP, "/");
-
-		strncpy(aux, var5, 3);
-		strcat(messageOPCToTCP, aux);
-
-		strcat(messageOPCToTCP, "/");
-
-		strncpy(aux, var6, 3);
-		strcat(messageOPCToTCP, aux);
+		
+		decode();
+		printf("\n\n%s\n\n", messageOPCToTCP);
 
 		/************************************************************/
 
@@ -461,14 +418,14 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 
 	OPCITEMDEF ItemArray[10] =
 	{{
-	/*szAccessPath*/ L"",
-	/*szItemID*/ ITEM_ID1,
-	/*bActive*/ TRUE,
-	/*hClient*/ 0,
-	/*dwBlobSize*/ 0,
-	/*pBlob*/ NULL,
-	/*vtRequestedDataType*/ VT,
-	/*wReserved*/0
+		/*szAccessPath*/ L"",
+		/*szItemID*/ ITEM_ID1,
+		/*bActive*/ TRUE,
+		/*hClient*/ 0,
+		/*dwBlobSize*/ 0,
+		/*pBlob*/ NULL,
+		/*vtRequestedDataType*/ VT,
+		/*wReserved*/0
 	},
 	
 	{
@@ -480,7 +437,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -491,7 +448,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -502,7 +459,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -513,7 +470,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -524,7 +481,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -535,7 +492,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -546,7 +503,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -557,7 +514,7 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
+	},
 
 	{
 		/*szAccessPath*/ L"",
@@ -568,17 +525,15 @@ void AddTheItem(IOPCItemMgt* pIOPCItemMgt, OPCHANDLE& hServerItem1, OPCHANDLE& h
 		/*pBlob*/ NULL,
 		/*vtRequestedDataType*/ VT,
 		/*wReserved*/0
-		},
-	};
+	}};
 
 	//Add Result:
-	OPCITEMRESULT* pAddResult=NULL;
+	OPCITEMRESULT* pAddResult = NULL;
 	HRESULT* pErrors = NULL;
 
 	// Add an Item to the previous Group:
 	hr = pIOPCItemMgt->AddItems(10, ItemArray, &pAddResult, &pErrors);
-	if (hr != S_OK){
-
+	if (hr != S_OK) {
 		printf("Failed call to AddItems function. Error code = %x\n", hr);
 		exit(0);
 	}
@@ -879,4 +834,75 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*Finalizando a thread servidor de sockets*/
 	printf("Finalizando thread servidor de sockets\n");
 	ExitThread((DWORD)index);
+}
+
+void decode()
+{
+	char buffer[100];
+	char* aux = new char;
+
+	float var1;
+	float var2;
+	float var3;
+	float var4;
+	float var5;
+	float var6;
+	char* varN1 = new char;
+	char* varN2 = new char;
+	char* varN3 = new char;
+	char* varN4 = new char;
+	char* varN5 = new char;
+	char* varN6 = new char;
+
+	char msg1[4];
+	char msg2[4];
+	char msg3[4];
+	char msg4[7];
+	char msg5[4];
+	char msg6[7];
+
+	VarToStr(sdadoLeitura[0], buffer);
+	var1 = atof(buffer);
+
+	VarToStr(sdadoLeitura[1], buffer);
+	var2 = atof(buffer);
+
+	VarToStr(sdadoLeitura[2], buffer);
+	var3 = atof(buffer);
+
+	VarToStr(sdadoLeitura[3], buffer);
+	var4 = atof(buffer);
+
+	VarToStr(sdadoLeitura[4], buffer);
+	var5 = atof(buffer);
+
+	VarToStr(sdadoLeitura[5], buffer);
+	var6 = atof(buffer);
+
+	sprintf(varN1, "%03.0f", var1);
+	sprintf(msg1, "%c%c%c", varN1[0], varN1[1], varN1[2]);
+
+	sprintf(varN2, "%.0f", var2);
+	sprintf(msg2, "%c%c%c", varN2[0], varN2[1], varN2[2]);
+
+	sprintf(varN3, "%.0f", var3);
+	sprintf(msg3, "%c%c%c", varN3[0], varN3[1], varN3[2]);
+
+	sprintf(varN4, "%6.1f", var4);
+	if (var4 > 10000)
+	{
+		sprintf(msg4, "%c%c%c%c%c%c", varN4[1], varN4[2], varN4[3], varN4[4], varN4[5], varN4[6]);
+	}
+	else
+	{
+		sprintf(msg4, "%c%c%c%c%c%c", varN4[0], varN4[1], varN4[2], varN4[3], varN4[4], varN4[5]);
+	}
+
+	sprintf(varN5, "%03.0f", abs(var5));
+	sprintf(msg5, "%c%c%c", varN5[0], varN5[1], varN5[2]);
+
+	sprintf(varN6, "%06.1f", var6);
+	sprintf(msg6, "%c%c%c%c%c%c", varN6[0], varN6[1], varN6[2], varN6[3], varN6[4], varN6[5]);
+
+	sprintf(messageOPCToTCP, "%s/%s/%s/%s/%s/%s", msg1, msg2, msg3, msg4, msg5, msg6);
 }
