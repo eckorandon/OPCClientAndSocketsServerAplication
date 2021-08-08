@@ -164,11 +164,13 @@ char	msgstatus[TAMMSGSTATUS + 1] = "99/#######/#####.#/#####.#/###/###/###/###",
 /*  HANDLE MUTEX*/
 
 HANDLE hMutexStatus;
+HANDLE hMutexSetup;
 
 /* ======================================================================================================================== */
 /* THREAD PRIMARIA*/
 /* INICIALIZACAO E CONFIGURACAO DO SERVIDOR OPC*/
 /* INICIALIZACAO DA THREAD SECUNDARIA*/
+/* INICIALIZACAO DE MUTEX*/
 /* LEITURA E ESCRITA DE MULTIPLOS ITENS NO SERVIDOR OPC*/
 /* PASSAGEM DE PARAMETROS PARA O SERVIDOR DE SOCKETS*/
 
@@ -195,6 +197,9 @@ void main(void) {
 	/*------------------------------------------------------------------------------*/
 	/*Criando objetos do tipo mutex*/
 	hMutexStatus = CreateMutex(NULL, FALSE, "MutexStatus");
+	GetLastError();
+
+	hMutexSetup = CreateMutex(NULL, FALSE, "MutexSetup");
 	GetLastError();
 
 	/*------------------------------------------------------------------------------*/
@@ -382,6 +387,7 @@ void main(void) {
 	/*Fecha handles*/
 	CloseHandle(hServidorSockets);
 	CloseHandle(hMutexStatus);
+	CloseHandle(hMutexSetup);
 }
 
 
@@ -839,13 +845,24 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 					GetLastError();
 				}
 
-				/*Caso tenha solicitado confirmcao*/
+				/*Caso tenha solicitado escrita no servidor OPC*/
 				if (iResult == 33) {
 					/*Exibe a hora corrente*/
 					GetSystemTime(&SystemTime);
 					printf("\x1B[31mSISTEMA DE CONTROLE: data/hora local = %02d-%02d-%04d %02d:%02d:%02d\x1B[0m\n",
 						SystemTime.wDay, SystemTime.wMonth, SystemTime.wYear,
 						SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+
+					ret = WaitForSingleObject(hMutexSetup, INFINITE);
+					GetLastError();
+
+					/*Escrita da mensagem em uma variavel global*/
+					for (int j = 0; j <= TAMMSGSETUP; j++) {
+						msgsetup[j] = recvbuf[j];
+					}
+
+					ret = ReleaseMutex(hMutexStatus);
+					GetLastError();
 
 					/*Imprime mensagem recebida em cyan*/
 					printf("\x1b[36m");
@@ -915,6 +932,10 @@ DWORD WINAPI ServidorSockets(LPVOID index) {
 	ExitThread((DWORD)index);
 }
 
+
+////////////////////////////////////////////////////////////////////////
+//
+//
 void decode() {
 	char buffer[100];
 	char* aux = new char;
