@@ -9,8 +9,8 @@ CABECALHO
 	Luiz Themystokliz S. Mendes
 
 	Alunos:
-	Estevao Coelho Kiel de Oliveira     - 2016119416
-	Lucas Costa Souza					- 2018013763
+	Estevao Coelho Kiel de Oliveira
+	Lucas Costa Souza
 
 	Data: Agosto de 2021
 
