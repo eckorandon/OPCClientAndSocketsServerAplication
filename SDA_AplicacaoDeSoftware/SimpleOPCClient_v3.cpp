@@ -745,7 +745,7 @@ void RemoveGroup (IOPCServer* pIOPCServer, OPCHANDLE hServerGroup)
 
 /* ======================================================================================================================== */
 /* THREAD SECUNDARIA*/
-/* */
+/* SERVIDOR DE SOCKETS*/
 
 DWORD WINAPI ServidorSockets(LPVOID index) {
 	/*------------------------------------------------------------------------------*/
